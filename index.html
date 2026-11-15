@@ -758,6 +758,8 @@ async function gemini({ system, parts, history = [], schema }) {
 /* ============================== Internet (Google Search vía Gemini) ============================== */
 const WEB_STORE = 'cerebro.web';
 const webOn = () => lsGet(WEB_STORE) !== 'off';
+const WEB_HINT = /(busca|buscar|buscame|investiga|internet|google|en linea|online|precio|cuanto cuesta|cuanto vale|barato|oferta|descuento|promocion|link|enlace|url|tienda|donde (compro|venden|comprar|lo consigo)|amazon|mercado ?libre|liverpool|walmart|costco|sephora|palacio de hierro|clima|horario|noticia|disponib|cotiza|compara)/;
+const NO_WEB_REPLY = /(no tengo acceso|sin acceso a internet|no puedo (buscar|navegar|acceder)|tiempo real|no tengo conexion|no puedo consultar)/;
 const shopWhere = () => (S.profile.shopWhere || '').trim();
 const URL_RE = /https?:\/\/[^\s<>"'`)\]]+[^\s<>"'`)\].,;:!?]/g;
 const domainOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
@@ -850,7 +852,7 @@ INTERNET: ya buscaste "${web.query}". RESULTADOS:
 ${web.text}
 FUENTES:
 ${web.sources.map((x) => `- ${x.title}: ${x.uri}`).join('\n') || '(sin fuentes)'}
-Con estos resultados: responde en reply con lo más útil (mejor precio primero, tienda y precio). Si el usuario pidió guardar, armar una lista o "buscar y guardar", propone actions add en la lista que corresponda (crea la lista con add_list si no existe, ej. mascotas → icon paw). En notes pon tienda, precio con moneda, fecha de hoy y el link. Para el link usa la URL directa del producto si aparece en RESULTADOS; si no, usa la de FUENTES de esa tienda. Nunca inventes links ni precios. Deja web vacío.` : `- Tienes acceso a internet con Google. Si para cumplir la petición necesitas información actual de internet (precios, ofertas, tiendas, links, disponibilidad, clima, horarios, noticias, datos de lugares) pon en web una búsqueda concreta (producto, marca, presentación, país) y deja actions vacío; reply: una frase corta. Antes de buscar usa la memoria para afinar (ej. marca de croquetas de la mascota, perfumes que le gustan). Si es solo sobre su memoria, deja web vacío.`}
+Con estos resultados: responde en reply con lo más útil (mejor precio primero, tienda y precio). Si el usuario pidió guardar, armar una lista o "buscar y guardar", propone actions add en la lista que corresponda (crea la lista con add_list si no existe, ej. mascotas → icon paw). En notes pon tienda, precio con moneda, fecha de hoy y el link. Para el link usa la URL directa del producto si aparece en RESULTADOS; si no, usa la de FUENTES de esa tienda. Nunca inventes links ni precios. Deja web vacío.` : `- SÍ tienes acceso a internet con Google a través del campo web: nunca digas que no tienes acceso a internet o a información en tiempo real. Si para cumplir la petición necesitas información actual de internet (precios, ofertas, tiendas, links, disponibilidad, clima, horarios, noticias, datos de lugares) pon en web una búsqueda concreta (producto, marca, presentación, país) y deja actions vacío; reply: una frase corta. Antes de buscar usa la memoria para afinar (ej. marca de croquetas de la mascota, perfumes que le gustan). Si es solo sobre su memoria, deja web vacío.`}
 
 MEMORIA DEL USUARIO:
 ${memoryText()}`;
@@ -881,7 +883,9 @@ async function aiCommand(text, img, history = [], onStatus) {
   parts.push({ text: text || 'Extrae la información importante de esta imagen y guárdala.' });
   let r = await gemini({ system: commandSystem(), parts, history, schema: CMD_SCHEMA });
   let web = null;
-  const q = String(r.web || '').trim();
+  let q = String(r.web || '').trim();
+  // Si la petición claramente pide internet, o Gemini dice que "no tiene acceso", busca de todos modos.
+  if (!q && webOn() && (WEB_HINT.test(norm(text || '')) || NO_WEB_REPLY.test(norm(r.reply || '')))) q = (text || '').slice(0, 300);
   if (q && webOn()) {
     onStatus?.('Buscando en internet…');
     try { web = await webSearch(q, text || ''); }
@@ -1165,7 +1169,7 @@ function viewSettings() {
     <button class="set-row danger" data-act="wipe">${ic('trash')}<span class="nm">Borrar toda la memoria</span></button>
   </div>
   <p class="help">Tu información vive solo en este teléfono. Haz un respaldo de vez en cuando y guárdalo en iCloud Drive (Archivos).</p>
-  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v3.3</p>`;
+  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v3.4</p>`;
 }
 
 function afterRender() {
