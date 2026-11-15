@@ -104,6 +104,8 @@ label.lbl{display:block; font-size:12px; font-weight:600; color:var(--muted); ma
 .ai-pill.on{background:rgba(106,0,255,.22); color:var(--violet-l)}
 .ai-pill .ic{width:12px; height:12px}
 .cap-img{position:relative; margin:4px 0 10px}
+.cap-pdf{display:flex; align-items:center; gap:10px; margin:4px 0 10px; padding:10px 12px; border-radius:12px; background:var(--surface2)}
+.cap-pdf button{width:28px; height:28px; border-radius:99px; display:flex; align-items:center; justify-content:center; color:var(--muted)}
 .cap-img img{max-height:140px; max-width:100%; border-radius:12px; display:block}
 .cap-img button{position:absolute; top:6px; left:6px; width:28px; height:28px; border-radius:99px; background:rgba(0,0,0,.7); color:#fff; display:flex; align-items:center; justify-content:center}
 .icon-btn.rec{background:var(--danger); color:#fff; animation:pulse 1.2s ease-in-out infinite}
@@ -176,6 +178,7 @@ label.lbl{display:block; font-size:12px; font-weight:600; color:var(--muted); ma
 .bubble.bot b{color:var(--mint); font-weight:600}
 .bubble .btn{margin-top:10px; min-height:40px; font-size:15px}
 .bubble.thinking{color:var(--muted); display:flex; gap:8px; align-items:center}
+.done-btns{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
 .refining{display:flex; gap:8px; align-items:center; font-size:13px; color:var(--muted); margin:6px 0 2px}
 .applied{font-size:13px; color:var(--mint); margin-top:8px; display:flex; gap:6px; align-items:center}
 .ask-hero{display:flex; flex-direction:column; align-items:flex-start; gap:10px; margin:14px 2px 6px}
@@ -330,6 +333,7 @@ label.lbl{display:block; font-size:12px; font-weight:600; color:var(--muted); ma
 <div id="onb" hidden></div>
 <div id="toast" role="status" aria-live="polite"></div>
 <input type="file" id="fileImg" accept="image/*" hidden>
+<input type="file" id="filePdf" accept="application/pdf,.pdf" hidden>
 <input type="file" id="fileBackup" accept="application/json,.json" hidden>
 <input type="file" id="fileAvatar" accept="image/*" hidden>
 
@@ -1307,12 +1311,42 @@ ${web.near ? `- PEDIDO DE LUGARES CERCANOS. El usuario está AHORA en ${shopWher
 - Si no son productos (clima, horarios, lugares, datos): deja products vacío y responde en reply breve y claro.
 - Deja web vacío.` : `- SÍ tienes acceso a internet con Google a través del campo web: nunca digas que no tienes acceso a internet o a información en tiempo real. Si para cumplir la petición necesitas información actual de internet (precios, ofertas, tiendas, links, disponibilidad, clima, horarios, noticias, datos de lugares) pon en web una búsqueda concreta (producto, marca, presentación, país) y deja actions vacío; reply: una frase corta. Antes de buscar usa la memoria para afinar (ej. marca de croquetas de la mascota, perfumes que le gustan). Si es solo sobre su memoria, deja web vacío.`}
 
+FORMATO EXACTO (nombres de campo en inglés, tal cual):
+{"reply":"…","web":"","products":[],"actions":[{"op":"add","title":"Venta en Verde textos Santillana","category":"colegio","date":"2026-12-01","notes":"07:30 a 14:00 en el colegio · 28% de descuento","repeat":""}]}
+- Nexo aplica las actions AL INSTANTE (el usuario puede deshacer). Si el usuario pide guardar, anotar, organizar, mover, completar, planificar o pega un correo/mensaje con información, actions NO puede ir vacío.
+- Nunca digas en reply que guardaste, moviste u organizaste algo que no esté en actions. En reply resume qué guardas y dónde.
+
 MEMORIA DEL USUARIO:
 ${memoryText()}`;
 }
+/* La IA a veces usa otros nombres de campo ("operation", "lista", "fecha"…): se traducen en vez de descartarlos. */
+const OP_ALIAS = { agregar: 'add', anadir: 'add', crear: 'add', create: 'add', new: 'add', insert: 'add', guardar: 'add', save: 'add', add_item: 'add', additem: 'add',
+  editar: 'update', modificar: 'update', edit: 'update', modify: 'update', move: 'update', mover: 'update', actualizar: 'update', change: 'update', update_item: 'update',
+  completar: 'done', complete: 'done', check: 'done', marcar: 'done', mark_done: 'done', hecho: 'done', uncheck: 'undone', pendiente: 'undone',
+  eliminar: 'delete', borrar: 'delete', remove: 'delete', delete_item: 'delete',
+  crear_lista: 'add_list', new_list: 'add_list', create_list: 'add_list', addlist: 'add_list', lista_nueva: 'add_list',
+  editar_lista: 'update_list', rename_list: 'update_list', borrar_lista: 'delete_list', remove_list: 'delete_list', eliminar_lista: 'delete_list' };
+function normAction(a) {
+  if (!a || typeof a !== 'object') return null;
+  const g = (...ks) => { for (const k of ks) if (a[k] !== undefined && a[k] !== null && a[k] !== '') return a[k]; return ''; };
+  let op = norm(String(g('op', 'operation', 'operacion', 'type', 'tipo', 'action', 'accion'))).replace(/[\s-]+/g, '_');
+  op = OPS.includes(op) ? op : OP_ALIAS[op] || '';
+  const title = g('title', 'titulo', 'nombre_item', 'item', 'text', 'texto', 'task', 'tarea');
+  if (!op) op = title ? 'add' : g('list_name', 'nombre_lista') ? 'add_list' : '';
+  let date = String(g('date', 'fecha', 'due', 'due_date', 'fecha_limite', 'deadline'));
+  const dm = date.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (dm) date = `${dm[3]}-${dm[2].padStart(2, '0')}-${dm[1].padStart(2, '0')}`;
+  if (/^\d{4}-\d{2}-\d{2}T/.test(date)) date = date.slice(0, 10);
+  const notes = g('notes', 'notas', 'note', 'nota', 'details', 'detalles', 'descripcion', 'description');
+  return { ...a, op, id: g('id', 'item_id', 'list_id', 'id_lista'), title: title || (op === 'add' ? g('name', 'nombre') : ''),
+    category: g('category', 'categoria', 'list', 'lista', 'category_id', 'categoria_id', 'list_name', 'nombre_lista', 'to', 'destino'),
+    date, notes: Array.isArray(notes) ? notes.join('\n') : notes, name: g('name', 'nombre', 'list_name', 'nombre_lista'), repeat: g('repeat', 'repetir') };
+}
+const pickActions = (r) => { const x = r?.actions ?? r?.acciones ?? r?.changes ?? r?.cambios ?? r?.items ?? []; return Array.isArray(x) ? x : x && typeof x === 'object' ? [x] : []; };
 function cleanActions(list) {
   const out = [];
-  for (const a of Array.isArray(list) ? list : []) {
+  for (const a0 of Array.isArray(list) ? list : []) {
+    const a = normAction(a0);
     if (!a || !OPS.includes(a.op)) continue;
     const x = {
       op: a.op, id: String(a.id || '').replace(/^id:/, '').trim(),
@@ -1482,7 +1516,7 @@ async function searchFlow(q, text, near, parts, history, onStatus) {
     onStatus?.(near ? 'Eligiendo los más cercanos…' : 'Comparando precios…');
     const r = await gemini({ system: commandSystem(web), parts, history, schema: CMD_SCHEMA });
     const products = cleanProducts(r.products, web);
-    return { reply: String(r.reply || ''), actions: products.length ? [] : cleanActions(r.actions), sources: web.sources, entry: web.entry, links: [], products };
+    return { reply: String(r.reply || ''), actions: products.length ? [] : cleanActions(pickActions(r)), sources: web.sources, entry: web.entry, links: [], products };
   }
   const products = localProducts(web, text);
   const res = { reply: localReply(web, products), actions: [], sources: web.sources, entry: '', links: products.length ? [] : searchLinks(q, text || '').slice(0, 2), products };
@@ -1539,13 +1573,15 @@ async function answerFromProducts(prev, onStatus) {
   return { reply: `**Mejor precio:** ${b.name} en **${b.store}** a **${b.price}**${kgTxt(b)}.${kgLine}${rest ? '\n\nLas demás:\n' + rest : ''}${noPrice ? `\n\n${noPrice} opción${noPrice > 1 ? 'es' : ''} sin precio visible en la página.` : ''}`, actions: [], products: sortByPrice(ps), sources: [], links: [] };
 }
 async function aiCommand0(text, img, history, onStatus, parts) {
-  const nt = norm(text || '');
+  const full = norm(text || '');
+  // La intención se lee en lo que el usuario escribió (primera línea), no en el correo o PDF pegado.
+  const nt = full.length > 300 || /contenido del pdf/.test(full) ? norm((text || '').split('\n')[0].slice(0, 250)) : full;
   const prev = !img && lastProductsMsg();
   if (prev && FOLLOW.test(nt.trim())) {
     if (PRICE_Q.test(nt)) return answerFromProducts(prev, onStatus);
     // Otra pregunta sobre esas opciones: Gemini responde con ellas en el contexto (sin buscar de nuevo).
     const r = await gemini({ system: commandSystem() + '\n\nOPCIONES QUE ACABAS DE MOSTRAR (responde sobre ESTAS, no busques otras; deja web vacío):\n' + prev.products.map((p, j) => `${j + 1}. ${p.name} — ${p.store} — ${p.price || 'sin precio'} — ${p.url}`).join('\n'), parts, history, schema: CMD_SCHEMA });
-    return { reply: String(r.reply || ''), actions: cleanActions(r.actions), sources: [], entry: '', links: [], products: [] };
+    return { reply: String(r.reply || ''), actions: cleanActions(pickActions(r)), sources: [], entry: '', links: [], products: [] };
   }
   const near = webOn() && !img && NEAR.test(nt) && /(cerca|recomien|sugier|busca|donde|algun|quiero (ir|comer|tomar)|abiert|mejor|bueno|rico)/.test(nt);
   const wantsWeb = webOn() && !img && (WEB_STRONG.test(nt) || near);
@@ -1564,12 +1600,21 @@ async function aiCommand0(text, img, history, onStatus, parts) {
     if (!q) q = getTavily() ? localQuery(text, near) : (text || '').slice(0, 300);
     return searchFlow(q, text, near, parts, history, onStatus);
   }
-  const r = await gemini({ system: commandSystem(), parts, history, schema: CMD_SCHEMA });
+  let r = await gemini({ system: commandSystem(), parts, history, schema: CMD_SCHEMA });
   let q = String(r.web || '').trim();
+  // Pidió guardar u organizar y la IA no trajo cambios: se le pide de nuevo, explícitamente.
+  const SAVE_INTENT = /(guarda|anota|apunta|agrega|anade|crea|organiza|ordena|mueve|muevelo|pasa(lo|la)? a|categoriza|planifica|recuerda|recuerdame|marca|completa|cambia|actualiza|programa|agenda)/;
+  if (!q && !cleanActions(pickActions(r)).length && (SAVE_INTENT.test(nt) || (text || '').length > 220 || img)) {
+    onStatus?.('Preparando los cambios…');
+    try {
+      const r2 = await gemini({ system: commandSystem() + '\n\nIMPORTANTE: el usuario quiere que lo guardes u organices en su memoria. Devuelve AHORA las actions concretas (op, title, category, date, notes), con el formato exacto indicado.', parts, history, schema: CMD_SCHEMA });
+      if (cleanActions(pickActions(r2)).length) r = r2;
+    } catch {}
+  }
   // Si Gemini dice que "no tiene acceso", busca de todos modos.
   if (!q && webOn() && NO_WEB_REPLY.test(norm(r.reply || ''))) q = (text || '').slice(0, 300);
   if (q && webOn()) return searchFlow(q, text, false, parts, history, onStatus);
-  return { reply: String(r.reply || ''), actions: cleanActions(r.actions), sources: [], entry: '', links: [], products: [] };
+  return { reply: String(r.reply || ''), actions: cleanActions(pickActions(r)), sources: [], entry: '', links: [], products: [] };
 }
 
 /* sin IA */
@@ -1652,7 +1697,40 @@ function localSearch(q) {
 
 /* ============================== vistas ============================== */
 const UI = { tab: 'home', cat: null, showDone: false };
-let pendingImg = null;
+let pendingImg = null, pendingPdf = null;
+/* PDF: el texto se saca en el mismo iPhone (pdf.js, gratis, sin IA). Groq después lo ordena. */
+const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+const PDF_MAX = 12000;
+let pdfLib = null;
+function loadPdfJs() {
+  pdfLib ||= new Promise((res, rej) => {
+    const sc = document.createElement('script');
+    sc.src = PDFJS + 'pdf.min.js';
+    sc.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js'; res(window.pdfjsLib); };
+    sc.onerror = () => { pdfLib = null; rej(gErr('No pude cargar el lector de PDF. Revisa tu conexión e intenta de nuevo.', 'net')); };
+    document.head.appendChild(sc);
+  });
+  return pdfLib;
+}
+async function pdfToText(file) {
+  const lib = await loadPdfJs();
+  const doc = await lib.getDocument({ data: await file.arrayBuffer() }).promise;
+  const pages = [];
+  for (let i = 1; i <= Math.min(doc.numPages, 30); i++) {
+    const tc = await (await doc.getPage(i)).getTextContent();
+    const lines = []; let line = '', lastY = null;
+    for (const it of tc.items) {
+      const y = Math.round(it.transform[5]);
+      if (lastY !== null && Math.abs(y - lastY) > 2) { lines.push(line); line = ''; }
+      line += (line && !/\s$/.test(line) && !/^\s/.test(it.str) ? ' ' : '') + it.str;
+      lastY = y;
+      if (it.hasEOL) { lines.push(line); line = ''; lastY = null; }
+    }
+    lines.push(line);
+    pages.push(lines.map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n'));
+  }
+  return { name: file.name, pages: doc.numPages, text: pages.join('\n\n').trim() };
+}
 let CHAT = []; // {role:'me'|'bot', text, html?, actions?, applied?, thinking?}
 
 function go(tab, extra = {}) { Object.assign(UI, { tab, cat: null }, extra); render(); window.scrollTo(0, 0); }
@@ -1738,9 +1816,11 @@ function viewHome() {
   </header>
   <section class="card capture">
     <textarea id="capText" rows="3" aria-label="Escríbele a Nexo" placeholder="${hasAI() ? 'Captura, cambia o pregunta. Nexo se encarga del resto.' : '¿Qué quieres recordar?'}"></textarea>
+    ${pendingPdf ? `<div class="cap-pdf">${ic('note')}<div style="flex:1; min-width:0"><b>${esc(pendingPdf.name)}</b><div class="small muted">${pendingPdf.pages} página${pendingPdf.pages > 1 ? 's' : ''} · ${pendingPdf.text.length > PDF_MAX ? 'muy largo: leo el comienzo' : 'texto listo'}</div></div><button data-act="pdfRemove" aria-label="Quitar PDF">${ic('x', 'sm')}</button></div>` : ''}
     <div id="capImg" class="cap-img" ${pendingImg ? '' : 'hidden'}>${pendingImg ? `<img src="${pendingImg.preview}" alt="Imagen adjunta"><button data-act="imgRemove" aria-label="Quitar imagen">${ic('x', 'sm')}</button>` : ''}</div>
     <div class="row">
       <button class="icon-btn" data-act="imgPick" aria-label="Agregar foto o captura de pantalla">${ic('camera')}</button>
+      <button class="icon-btn" data-act="pdfPick" aria-label="Adjuntar un PDF">${ic('note')}</button>
       <button class="icon-btn" data-act="mic" aria-label="Dictar con la voz">${ic('mic')}</button>
       <button class="icon-btn" data-act="paste" aria-label="Pegar del portapapeles">${ic('clipboard')}</button>
       <button class="btn primary" data-act="capture">${hasAI() ? 'Enviar' : 'Guardar'}</button>
@@ -1917,7 +1997,8 @@ function viewAsk() {
       ? m.applied ? `<div class="applied">${ic('check', 'sm')} Cambios aplicados</div>`
         : `<button class="btn primary" data-act="chatReview" data-i="${i}">Revisar y aplicar ${m.actions.length} cambio${m.actions.length > 1 ? 's' : ''}</button>`
       : '';
-    const retry = m.retry && !m.applied ? `<button class="btn" data-act="retryAsk" data-i="${i}">${ic('repeat', 'sm')} Reintentar</button>` : '';
+    const retry = (m.retry && !m.applied ? `<button class="btn" data-act="retryAsk" data-i="${i}">${ic('repeat', 'sm')} Reintentar</button>` : '') +
+      (m.cats?.length ? `<div class="done-btns">${m.cats.map((c) => `<button class="btn" data-act="cat" data-id="${esc(c)}">${ic('right', 'sm')} Ver ${esc(catName(c))}</button>`).join('')}${m.undoable ? `<button class="btn" data-act="undo">${ic('repeat', 'sm')} Deshacer</button>` : ''}</div>` : '');
     return `<div class="bot-row"><span class="nx">${SPARK}</span><div class="bubble bot ${m.thinking ? 'thinking' : ''}">${body}${act}${retry}</div></div>`;
   }).join('');
   return `
@@ -1997,7 +2078,7 @@ function viewSettings() {
     <button class="set-row danger" data-act="wipe">${ic('trash')}<span class="nm">Borrar toda la memoria</span></button>
   </div>
   <p class="help">Tu información vive solo en este teléfono. Haz un respaldo de vez en cuando y guárdalo en iCloud Drive (Archivos).</p>
-  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v5.2</p>`;
+  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v5.4</p>`;
 }
 
 function afterRender() {
@@ -2169,6 +2250,57 @@ function applyReview() {
   toast(n ? `${n} cambio${n > 1 ? 's' : ''} aplicado${n > 1 ? 's' : ''}` : 'No se aplicó nada', n ? { undo: true } : {});
 }
 
+/* Aplica al instante lo que no borra nada (se puede deshacer). Devuelve qué se hizo de verdad, para contarlo tal cual. */
+const RISKY = (a) => a.op === 'delete' || a.op === 'delete_list';
+function applyNow(actions) {
+  snapshot();
+  const done = [];
+  for (const a of actions) {
+    if (a.op === 'add_list') { const id = ensureCategory(a.name, a.icon, a.color); done.push({ kind: 'Lista creada', cat: id, title: catName(id) }); }
+    if (a.op === 'update_list') { const c = cat(a.id); if (!c) continue; if (a.name) c.name = a.name; if (a.icon) c.icon = a.icon; if (a.color) c.color = a.color; done.push({ kind: 'Lista actualizada', cat: c.id, title: c.name }); }
+  }
+  for (const a of actions) {
+    if (a.op === 'add') {
+      const catId = ensureCategory(a.category || 'notas');
+      const it = addItem({ title: a.title, cat: catId, date: a.date === 'none' ? '' : a.date, notes: a.notes, repeat: a.repeat });
+      if (it) done.push({ kind: 'Guardado', cat: catId, title: it.title, date: it.date });
+      continue;
+    }
+    const it = getItem(a.id);
+    if (!it || !['update', 'done', 'undone'].includes(a.op)) continue;
+    let kind = 'Actualizado';
+    if (a.op === 'update') {
+      if (a.title) it.title = a.title;
+      if (a.category) { const c = ensureCategory(a.category); if (c !== it.cat) kind = 'Movido'; it.cat = c; }
+      if (a.date === 'none') it.date = ''; else if (a.date) it.date = a.date;
+      if (a.notes) it.notes = a.notes;
+      if (a.repeat === 'yearly') it.repeat = 'yearly'; else if (a.repeat === 'none') it.repeat = '';
+      if (it.pkey) { delete S.profile[it.pkey]; delete it.pkey; }
+    }
+    if (a.op === 'done') { it.done = true; kind = 'Completado'; }
+    if (a.op === 'undone') { it.done = false; kind = 'Pendiente otra vez'; }
+    it.updated = Date.now();
+    done.push({ kind, cat: it.cat, title: it.title, date: it.date });
+  }
+  save();
+  return done;
+}
+function doneSummary(done) {
+  const groups = {};
+  for (const d of done) (groups[`${d.kind}|${d.cat}`] ||= []).push(d);
+  return Object.entries(groups).map(([k, ds]) => {
+    const [kind, c] = k.split('|');
+    if (kind.startsWith('Lista')) return `**${kind}:** ${ds.map((d) => d.title).join(', ')}`;
+    return `**${kind} en ${catName(c)}** (${ds.length}):\n` + ds.map((d) => `- ${d.title}${d.date ? ' · ' + new Date(d.date + 'T12:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }) : ''}`).join('\n');
+  }).join('\n\n');
+}
+/* Aplica la respuesta de Nexo: lo seguro se guarda ya; borrar queda para revisar. */
+function applyResult(r) {
+  const safe = r.actions.filter((a) => !RISKY(a)), risky = r.actions.filter(RISKY);
+  const done = safe.length ? applyNow(safe) : [];
+  return { done, risky, cats: [...new Set(done.map((d) => d.cat))].filter((c) => cat(c)) };
+}
+
 /* Detalle de un elemento: todo editable + pedirle cambios a Nexo */
 function openItem(id) {
   const it = getItem(id);
@@ -2256,22 +2388,34 @@ function chatHistory() {
     .map((m) => ({ role: m.role === 'me' ? 'user' : 'model', parts: [{ text: m.text + (m.products?.length ? '\n[Opciones mostradas: ' + m.products.map((p, j) => `${j + 1}) ${p.name} — ${p.store} — ${p.price || 'sin precio'}`).join('; ') + ']' : '') }] }));
 }
 async function doCapture(btn) {
-  const text = $('#capText').value.trim();
-  const img = pendingImg;
-  if (!text && !img) return toast('Escribe algo o agrega una foto');
-  const clear = () => { pendingImg = null; const t = $('#capText'); if (t) t.value = ''; };
+  const typed = $('#capText').value.trim();
+  const img = pendingImg, pdf = pendingPdf;
+  if (!typed && !img && !pdf) return toast('Escribe algo, agrega una foto o un PDF');
+  // Con PDF: lo que escribiste es la instrucción y el texto del PDF va completo a la IA.
+  const text = pdf ? `${typed || 'Organiza este documento: guarda cada fecha, evento, tarea, compra o dato importante en la lista que corresponde, con su fecha, y planifícalo para que no se me pase nada.'}\n\nCONTENIDO DEL PDF "${pdf.name}":\n${pdf.text.slice(0, PDF_MAX)}` : typed;
+  const shown = pdf ? `${typed ? typed + '\n' : ''}(PDF: ${pdf.name})` : typed || '(imagen)';
+  const clear = () => { pendingImg = null; pendingPdf = null; const t = $('#capText'); if (t) t.value = ''; };
   if (!hasAI()) {
     if (img) return toast('Para leer fotos, conecta la IA en Ajustes');
     return openReview(localDraft(text), '', clear);
   }
   const r = await runNexo(text, btn, img);
   if (!r) { if (text) openReview(localDraft(text), 'La IA no respondió esta vez. Armé este borrador sin IA para que no se pierda nada: revísalo antes de guardar.', clear); return; }
-  if (r.actions.length) return openReview(r.actions, r.reply, clear);
+  if (r.actions.length) {
+    const ap = applyResult(r);
+    if (ap.done.length) {
+      clear();
+      CHAT.push({ role: 'me', text: shown }, botMsg({ ...r, actions: ap.risky }, { cats: ap.cats, undoable: true, text: [r.reply, doneSummary(ap.done)].filter(Boolean).join('\n\n') }));
+      toast(`${ap.done.length} guardado${ap.done.length > 1 ? 's' : ''} en ${ap.cats.map(catName).join(', ')}`, { undo: true });
+      return go('ask');
+    }
+    if (ap.risky.length) return openReview(ap.risky, r.reply, clear);
+  }
   // sin cambios: fue una pregunta → la respuesta va al chat
   const bm = botMsg(r, { text: r.reply || 'No encontré nada que guardar.' });
-  CHAT.push({ role: 'me', text: text || '(imagen)' }, bm);
+  CHAT.push({ role: 'me', text: shown }, bm);
   attachRefine(bm, r);
-  pendingImg = null;
+  pendingImg = null; pendingPdf = null;
   go('ask');
 }
 async function doAsk(q) {
@@ -2290,7 +2434,12 @@ async function doAsk(q) {
   CHAT.push(thinking); render();
   try {
     const r = await aiCommand(q, null, history, (st) => { thinking.status = st; if (UI.tab === 'ask') render(); });
-    Object.assign(thinking, botMsg(r, { thinking: false, text: r.reply || (r.actions.length ? 'Te propongo estos cambios.' : 'Listo.') }));
+    const ap = applyResult(r);
+    const sum = doneSummary(ap.done);
+    const failed = r.actions.length && !ap.done.length && !ap.risky.length;
+    Object.assign(thinking, botMsg({ ...r, actions: ap.risky }, { thinking: false, cats: ap.cats, undoable: ap.done.length > 0,
+      text: [r.reply || (ap.done.length ? '' : 'Listo.'), sum, failed ? 'No pude aplicar esos cambios (no encontré los elementos). Dime cuál es y lo hago.' : '', ap.risky.length ? 'Para borrar, revisa y confirma abajo.' : ''].filter(Boolean).join('\n\n') }));
+    if (ap.done.length) toast(`${ap.done.length} cambio${ap.done.length > 1 ? 's' : ''} guardado${ap.done.length > 1 ? 's' : ''}`, { undo: true });
     attachRefine(thinking, r);
   } catch (e) {
     // Si era un correo o texto largo, deja un borrador sin IA listo para revisar y guardar.
@@ -2305,7 +2454,12 @@ async function askAbout(prefix, input, btn) {
   if (!t) return toast('Escribe qué quieres que haga Nexo');
   const r = await runNexo(`${prefix} ${t}`, btn);
   if (!r) return;
-  if (r.actions.length) { closeSheet(); openReview(r.actions, r.reply, () => { input.value = ''; }); }
+  if (r.actions.length) {
+    closeSheet();
+    const ap = applyResult(r);
+    if (ap.done.length) { input.value = ''; render(); toast(`${ap.done.length} cambio${ap.done.length > 1 ? 's' : ''} hecho${ap.done.length > 1 ? 's' : ''}`, { undo: true }); }
+    if (ap.risky.length) openReview(ap.risky, r.reply, () => { input.value = ''; });
+  }
   else if (r.sources?.length || r.links?.length || r.products?.length) { closeSheet(); input.value = ''; CHAT.push({ role: 'me', text: t }, botMsg(r)); go('ask'); }
   else toast(r.reply || 'No encontré cambios que hacer', { ms: 5000 });
 }
@@ -2356,6 +2510,8 @@ const ACTIONS = {
   capture: (el) => doCapture(el),
   hint: (el) => { const t = $('#capText'); t.value = el.textContent.replace(/…$/, ' '); t.focus(); },
   imgPick: () => $('#fileImg').click(),
+  pdfPick: () => $('#filePdf').click(),
+  pdfRemove: () => { const keep = $('#capText')?.value || ''; pendingPdf = null; render(); $('#capText').value = keep; },
   imgRemove: () => { const keep = $('#capText')?.value || ''; pendingImg = null; render(); $('#capText').value = keep; },
   paste: async () => {
     try { const t = await navigator.clipboard.readText(); if (!t) return toast('El portapapeles está vacío'); const ta = $('#capText'); ta.value = (ta.value ? ta.value + '\n' : '') + t; ta.focus(); }
@@ -2497,6 +2653,18 @@ $('#fileImg').addEventListener('change', async (e) => {
   const keep = $('#capText')?.value || '';
   try { pendingImg = await fileToJpeg(f); render(); $('#capText').value = keep; }
   catch { toast('No pude abrir esa imagen'); }
+});
+$('#filePdf').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  const keep = $('#capText')?.value || '';
+  toast('Leyendo el PDF…');
+  try {
+    const p = await pdfToText(f);
+    if (p.text.replace(/\s/g, '').length < 40) return toast('Este PDF es una imagen escaneada: no trae texto para leer. Ábrelo, mantén el dedo sobre el texto, copia y pégalo en Nexo.', { ms: 8000 });
+    pendingPdf = p; render(); const t = $('#capText'); if (t) t.value = keep;
+    toast(`PDF listo (${p.pages} pág.). Toca Enviar.`);
+  } catch (err) { toast(err.code ? err.message : 'No pude leer ese PDF. ¿Tiene contraseña?', { ms: 5000 }); }
 });
 $('#fileAvatar').addEventListener('change', async (e) => {
   const f = e.target.files[0]; e.target.value = '';
