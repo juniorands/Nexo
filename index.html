@@ -181,6 +181,9 @@ label.lbl{display:block; font-size:12px; font-weight:600; color:var(--muted); ma
 .ask-hero .nx{width:52px; height:52px; border-radius:16px}
 .ask-hero .nx svg{width:28px; height:28px}
 .chips{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
+.diag-row{display:flex; gap:12px; align-items:flex-start; padding:10px 0; border-bottom:1px solid var(--line)}
+.diag-row .ic, .diag-row .spin{margin-top:3px; flex:none}
+.diag-row .small{word-break:break-word}
 .srcs{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px}
 .src{display:inline-flex; align-items:center; gap:5px; max-width:100%; padding:5px 10px; border-radius:99px; background:var(--surface2); color:var(--lav); font-size:13px; text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .src .ic{width:13px; height:13px; flex:none}
@@ -630,8 +633,12 @@ const API = 'https://generativelanguage.googleapis.com/v1beta';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function gErr(msg, code) { const e = new Error(msg); e.code = code; return e; }
 async function apiError(r) {
+  const e = await apiError0(r); e.status = r.status; e.raw = apiError.lastMsg; return e;
+}
+async function apiError0(r) {
   let msg = '';
   try { msg = (await r.json()).error?.message || ''; } catch {}
+  apiError.lastMsg = msg;
   if (r.status === 400 && /api.?key/i.test(msg)) return gErr('La clave de Gemini no es válida. Revísala en Ajustes.', 'key');
   if (r.status === 401 || r.status === 403) return gErr('Gemini rechazó la clave (' + r.status + '). Verifica que esté activa.', 'key');
   if (r.status === 404) return gErr('Ese modelo no está disponible para tu clave.', 'model');
@@ -639,7 +646,7 @@ async function apiError(r) {
   if (r.status >= 500) return gErr('Gemini está saturado en este momento (' + r.status + ').', 'busy');
   return gErr('Gemini: ' + (msg || 'error ' + r.status), r.status === 400 ? 'bad' : 'other');
 }
-async function gfetch(url, opts = {}, ms = 45000) {
+async function gfetch(url, opts = {}, ms = 30000) {
   for (let attempt = 0; ; attempt++) {
     const ac = new AbortController(); const t = setTimeout(() => ac.abort(), ms);
     try { return await fetch(url, { ...opts, signal: ac.signal }); }
@@ -663,6 +670,7 @@ async function listModels(key) {
 }
 /* Prefiere modelos Flash estables (rápidos y con capa gratuita); evita preview y Pro (lentos, con poco cupo gratis). */
 function modelScore(n) {
+  if (/^gemini-\d+(\.\d+)?-hydrogen$/.test(n)) return 425; // modelo eficiente de AI Studio (Gemini 4)
   {
     const m = n.match(/^gemini-(\d+(?:\.\d+)?)-(flash|pro)(-lite)?(.*)$/);
     if (!m) return -1;
@@ -688,13 +696,13 @@ function thinkingFor(model) {
   return null;
 }
 let MODELS = [];
-async function rawGenerate(model, key, body) {
+async function rawGenerate(model, key, body, ms) {
   const b = JSON.parse(JSON.stringify(body));
   const th = thinkingFor(model);
   if (th) b.generationConfig.thinkingConfig = th;
   const post = () => gfetch(`${API}/models/${encodeURIComponent(model)}:generateContent`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(b),
-  });
+  }, ms);
   let r = await post();
   // 400 por configuración (pensamiento o esquema) en modelos que no la aceptan: reintenta más simple.
   if (r.status === 400) {
@@ -712,19 +720,19 @@ async function rawGenerate(model, key, body) {
   return { txt, cand: j.candidates[0] };
 }
 /* Usa el modelo elegido y, si falla por modelo/cupo/saturación, prueba los de respaldo y se queda con el que funcione. */
-async function generate(body, key = getKey(), { prefer } = {}) {
+async function generate(body, key = getKey(), { prefer, ms, noFallback } = {}) {
   await ensureModels(key);
   const first = prefer && MODELS.includes(prefer) ? prefer : getModel();
   const backups = rankModels(MODELS).filter((m) => m !== first && !/-pro/.test(m)).slice(0, 3);
   let firstErr;
   for (const model of [first, ...backups]) {
     try {
-      const res = await rawGenerate(model, key, body);
+      const res = await rawGenerate(model, key, body, ms);
       if (model !== first && !prefer) lsSet(MODEL_STORE, model);
       return res;
     } catch (e) {
       if (!firstErr) { firstErr = e; firstErr.message += ` (${model})`; }
-      if (!['model', 'quota', 'busy', 'timeout'].includes(e.code)) break;
+      if (noFallback || !['model', 'quota', 'busy'].includes(e.code)) break;
     }
   }
   throw firstErr;
@@ -760,6 +768,20 @@ const WEB_STORE = 'cerebro.web';
 const webOn = () => lsGet(WEB_STORE) !== 'off';
 const WEB_HINT = /(busca|buscar|buscame|investiga|internet|google|en linea|online|precio|cuanto cuesta|cuanto vale|barato|oferta|descuento|promocion|link|enlace|url|tienda|donde (compro|venden|comprar|lo consigo)|amazon|mercado ?libre|liverpool|walmart|costco|sephora|palacio de hierro|clima|horario|noticia|disponib|cotiza|compara)/;
 const NO_WEB_REPLY = /(no tengo acceso|sin acceso a internet|no puedo (buscar|navegar|acceder)|tiempo real|no tengo conexion|no puedo consultar)/;
+const SHOP_HINT = /(precio|compra|comprar|tienda|barato|oferta|descuento|perfume|crema|serum|maquillaje|ropa|zapato|tenis|croqueta|comida para|alimento|juguete|regalo|amazon|mercado ?libre|liverpool|sephora|walmart|costco)/;
+/* Sin búsqueda automática: arma links de búsqueda listos para abrir en Safari. */
+function searchLinks(q, original) {
+  const clean = q.replace(/^(b[uú]s?came|busca|buscar|arma( mi)?|encuentra|investiga)\s+/i, '').replace(/\s+(y )?(gu[aá]rda(lo|los|la|las)?|con links?|al mejor precio)\b.*$/i, '').trim().slice(0, 120) || q.slice(0, 120);
+  const enc = encodeURIComponent(clean);
+  const us = /(estados unidos|usa|eeuu|ee\.uu|united states)/i.test(shopWhere());
+  const out = [{ title: 'Buscar en Google', uri: `https://www.google.com/search?q=${enc}` }];
+  if (SHOP_HINT.test(norm(original + ' ' + q))) {
+    out.unshift({ title: 'Google Shopping (comparar precios)', uri: `https://www.google.com/search?tbm=shop&q=${enc}` });
+    out.push({ title: us ? 'Amazon' : 'Amazon México', uri: `https://www.amazon.${us ? 'com' : 'com.mx'}/s?k=${enc}` });
+    if (!us) out.push({ title: 'Mercado Libre', uri: `https://listado.mercadolibre.com.mx/${encodeURIComponent(clean.replace(/\s+/g, '-'))}` });
+  }
+  return out;
+}
 const shopWhere = () => (S.profile.shopWhere || '').trim();
 const URL_RE = /https?:\/\/[^\s<>"'`)\]]+[^\s<>"'`)\].,;:!?]/g;
 const domainOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
@@ -775,9 +797,17 @@ No inventes URLs ni precios: solo los que veas en los resultados.` }] },
     tools: [{ google_search: {} }],
     generationConfig: { temperature: 0.2 },
   };
-  const cur = getModel();
-  const prefer = /gemini-([3-9]|\d\d)/.test(cur) ? cur : rankModels(MODELS).find((m) => /gemini-([3-9]|\d\d)/.test(m) && !/-pro/.test(m));
-  const { txt, cand } = await generate(body, getKey(), { prefer });
+  await ensureModels();
+  const cur = getModel(), g3 = (m) => /gemini-([3-9]|\d\d)/.test(m);
+  // Hydrogen primero (en AI Studio trae búsqueda), luego el modelo actual y el mejor Flash 3+.
+  const tries = [...new Set([MODELS.find((m) => /hydrogen/.test(m)), g3(cur) ? cur : null, ...rankModels(MODELS).filter((m) => g3(m) && !/-pro/.test(m))].filter(Boolean))].slice(0, 3);
+  let res, firstErr;
+  for (const m of tries.length ? tries : [cur]) {
+    try { res = await generate(body, getKey(), { prefer: m, ms: 40000, noFallback: true }); break; }
+    catch (e) { firstErr ||= e; if (!['quota', 'model', 'bad', 'busy'].includes(e.code)) break; }
+  }
+  if (!res) throw firstErr;
+  const { txt, cand } = res;
   const gm = cand?.groundingMetadata || {};
   const seen = new Set();
   const sources = (gm.groundingChunks || []).map((c) => c.web).filter((w) => w?.uri)
@@ -889,11 +919,17 @@ async function aiCommand(text, img, history = [], onStatus) {
   if (q && webOn()) {
     onStatus?.('Buscando en internet…');
     try { web = await webSearch(q, text || ''); }
-    catch (e) { return { reply: 'No pude buscar en internet: ' + e.message, actions: [] }; }
+    catch (e) {
+      const links = searchLinks(q, text || '');
+      if (['quota', 'key', 'bad', 'model'].includes(e.code)) {
+        return { reply: `La búsqueda automática en internet de Gemini **no está incluida en el plan gratuito** de tu clave. Para activarla, habilita la facturación de tu proyecto en Google AI Studio (incluye 5,000 búsquedas gratis al mes).\n\nMientras, te dejo la búsqueda lista:`, actions: [], links };
+      }
+      return { reply: 'No pude buscar en internet (' + e.message + '). Te dejo la búsqueda lista:', actions: [], links };
+    }
     onStatus?.('Armando la respuesta…');
     r = await gemini({ system: commandSystem(web), parts, history, schema: CMD_SCHEMA });
   }
-  return { reply: String(r.reply || ''), actions: cleanActions(r.actions), sources: web?.sources || [], entry: web?.entry || '' };
+  return { reply: String(r.reply || ''), actions: cleanActions(r.actions), sources: web?.sources || [], entry: web?.entry || '', links: [] };
 }
 
 /* sin IA */
@@ -1080,7 +1116,8 @@ function linkify(html) {
   return html.replace(/(^|[^"'>=])(https?:\/\/[^\s<>"']+[^\s<>"'.,;:!?)])/g, (m, pre, u) => `${pre}<a class="lnk" href="${u}" target="_blank" rel="noopener">${esc(domainOf(u.replace(/&amp;/g, '&')))}</a>`);
 }
 function sourcesHtml(m) {
-  if (!m.sources?.length && !m.entry) return '';
+  const lk = m.links?.length ? `<div class="links">${m.links.map((x) => `<a class="btn" href="${esc(x.uri)}" target="_blank" rel="noopener">${ic('globe')}<span>${esc(x.title)}</span></a>`).join('')}</div>` : '';
+  if (!m.sources?.length && !m.entry) return lk;
   const chips = (m.sources || []).map((x) => `<a class="src" href="${esc(x.uri)}" target="_blank" rel="noopener">${ic('globe')}<span>${esc(x.title)}</span></a>`).join('');
   const gse = m.entry ? `<iframe class="gse" sandbox="allow-popups allow-popups-to-escape-sandbox" srcdoc="${esc('<meta name=color-scheme content=dark><base target=_blank><style>html,body{margin:0;background:transparent;color-scheme:dark}</style>' + m.entry)}"></iframe>` : '';
   return `<div class="srcs">${chips}</div>${gse}`;
@@ -1099,7 +1136,7 @@ function mdLite(s) {
 function viewAsk() {
   const msgs = CHAT.map((m, i) => {
     if (m.role === 'me') return `<div class="bubble me">${esc(m.text)}</div>`;
-    const body = m.thinking ? `<span class="spin"></span> ${esc(m.status || 'Pensando…')}` : (m.html || mdLite(m.text)) + sourcesHtml(m);
+    const body = m.thinking ? `<span class="spin"></span> ${esc(m.status || 'Pensando…')} <span class="el muted" data-t0="${m.t0 || Date.now()}"></span>` : (m.html || mdLite(m.text)) + sourcesHtml(m);
     const act = m.actions?.length
       ? m.applied ? `<div class="applied">${ic('check', 'sm')} Cambios aplicados</div>`
         : `<button class="btn primary" data-act="chatReview" data-i="${i}">Revisar y aplicar ${m.actions.length} cambio${m.actions.length > 1 ? 's' : ''}</button>`
@@ -1146,11 +1183,12 @@ function viewSettings() {
       <button class="btn primary" style="flex:1" data-act="saveKey">${key ? 'Guardar y probar' : 'Conectar'}</button>
       ${key ? '<button class="btn danger" data-act="removeKey">Quitar</button>' : ''}
     </div>
+    ${key ? `<button class="btn" style="width:100%; margin-top:10px" data-act="diag">${ic('bolt')} Probar conexión</button>` : ''}
   </div>
   ${key ? `<h2 class="sec">Internet</h2>
   <div class="card">
     <label style="display:flex; align-items:center; gap:12px; font-size:16px">
-      <span style="flex:1">Buscar en internet<span class="help" style="display:block; margin:2px 0 0">Nexo busca en Google cuando le pides precios, links, tiendas o datos actuales.</span></span>
+      <span style="flex:1">Buscar en internet<span class="help" style="display:block; margin:2px 0 0">Nexo busca en Google cuando le pides precios, links, tiendas o datos actuales. Requiere facturación activa en tu proyecto de Google AI Studio (5,000 búsquedas gratis al mes); sin ella, Nexo te deja la búsqueda lista para abrir.</span></span>
       <input type="checkbox" data-act="webToggle" ${webOn() ? 'checked' : ''} style="width:26px;height:26px;accent-color:var(--mint)">
     </label>
     ${webOn() ? `<label class="lbl" for="whereIn">Dónde compras</label>
@@ -1169,7 +1207,7 @@ function viewSettings() {
     <button class="set-row danger" data-act="wipe">${ic('trash')}<span class="nm">Borrar toda la memoria</span></button>
   </div>
   <p class="help">Tu información vive solo en este teléfono. Haz un respaldo de vez en cuando y guárdalo en iCloud Drive (Archivos).</p>
-  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v3.4</p>`;
+  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v3.7</p>`;
 }
 
 function afterRender() {
@@ -1184,6 +1222,45 @@ function afterRender() {
 }
 
 /* ============================== hojas ============================== */
+setInterval(() => { for (const el of document.querySelectorAll('.el[data-t0]')) { const sec = Math.round((Date.now() - +el.dataset.t0) / 1000); el.textContent = sec >= 3 ? `· ${sec} s` : ''; } }, 1000);
+
+/* Diagnóstico: prueba cada paso de la conexión con Gemini y muestra qué falla */
+async function runDiag() {
+  const key = getKey();
+  if (!key) return toast('Conecta Gemini primero');
+  const steps = [];
+  const paint = (done) => {
+    const box = $('#diagOut'); if (!box) return;
+    box.innerHTML = steps.map((st) => `<div class="diag-row">${st.ok === undefined ? '<span class="spin"></span>' : ic(st.ok ? 'check' : 'alert', 'sm')}
+      <div><b>${esc(st.name)}</b><div class="small muted">${esc(st.info || '')}</div></div></div>`).join('') +
+      (done ? `<p class="help">Toma captura de esta pantalla si algo salió mal.</p>` : '');
+  };
+  openSheet(`<h3>Probar conexión</h3><div id="diagOut"></div>
+    <div class="sheet-actions"><button class="btn primary" data-act="closeSheet">Cerrar</button></div>`);
+  const step = async (name, fn) => {
+    const st = { name }; steps.push(st); paint(); const t0 = Date.now();
+    try { st.info = await fn(); st.ok = true; }
+    catch (e) { st.ok = false; st.info = e.message + (e.status ? ` · HTTP ${e.status}` : '') + (e.raw && !e.message.includes(e.raw) ? ` · ${String(e.raw).slice(0, 220)}` : ''); }
+    st.info = `${st.info || ''} · ${((Date.now() - t0) / 1000).toFixed(1)} s`; paint(); return st.ok;
+  };
+  const online = navigator.onLine !== false;
+  await step('Internet del teléfono', async () => { if (!online) throw new Error('El iPhone dice que no hay conexión'); return 'OK'; });
+  if (!(await step('Clave y lista de modelos', async () => { MODELS = await listModels(key); await ensureModels(key); return `${MODELS.length} modelos · usando ${getModel()}`; }))) return paint(true);
+  await step('Respuesta simple', async () => {
+    const { txt } = await generate({ contents: [{ role: 'user', parts: [{ text: 'Responde solo: OK' }] }], generationConfig: { temperature: 0 } }, key, { noFallback: true });
+    return `${getModel()} respondió: ${txt.trim().slice(0, 40)}`;
+  });
+  await step('Respuesta de Nexo (JSON)', async () => {
+    const r = await gemini({ system: commandSystem(), parts: [{ text: '¿Qué tengo pendiente?' }], schema: CMD_SCHEMA });
+    return `OK · ${String(r.reply || '').slice(0, 60)}`;
+  });
+  if (webOn()) await step('Búsqueda en Google', async () => {
+    const w = await webSearch('precio perfume Carolina Herrera Good Girl 80ml', 'prueba');
+    return `${w.sources.length} fuentes · ${w.text.trim().slice(0, 80)}`;
+  });
+  paint(true);
+}
+
 function openSheet(html) {
   const root = $('#sheet');
   root.innerHTML = `<div class="sheet-bg" data-close></div><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div>`;
@@ -1399,7 +1476,7 @@ async function doCapture(btn) {
   if (!r) { if (text) openReview(localClassify(text), 'Sin IA en este momento: revisa antes de guardar.', clear); return; }
   if (r.actions.length) return openReview(r.actions, r.reply, clear);
   // sin cambios: fue una pregunta → la respuesta va al chat
-  CHAT.push({ role: 'me', text: text || '(imagen)' }, { role: 'bot', text: r.reply || 'No encontré nada que guardar.', sources: r.sources, entry: r.entry });
+  CHAT.push({ role: 'me', text: text || '(imagen)' }, { role: 'bot', text: r.reply || 'No encontré nada que guardar.', sources: r.sources, entry: r.entry, links: r.links });
   pendingImg = null;
   go('ask');
 }
@@ -1415,11 +1492,11 @@ async function doAsk(q) {
   }
   const history = chatHistory();
   CHAT.push({ role: 'me', text: q });
-  const thinking = { role: 'bot', thinking: true };
+  const thinking = { role: 'bot', thinking: true, t0: Date.now() };
   CHAT.push(thinking); render();
   try {
     const r = await aiCommand(q, null, history, (st) => { thinking.status = st; if (UI.tab === 'ask') render(); });
-    Object.assign(thinking, { thinking: false, text: r.reply || (r.actions.length ? 'Te propongo estos cambios.' : 'Listo.'), actions: r.actions, sources: r.sources, entry: r.entry });
+    Object.assign(thinking, { thinking: false, text: r.reply || (r.actions.length ? 'Te propongo estos cambios.' : 'Listo.'), actions: r.actions, sources: r.sources, entry: r.entry, links: r.links });
   } catch (e) {
     Object.assign(thinking, { thinking: false, text: 'Hubo un problema: ' + e.message });
   }
@@ -1431,7 +1508,7 @@ async function askAbout(prefix, input, btn) {
   const r = await runNexo(`${prefix} ${t}`, btn);
   if (!r) return;
   if (r.actions.length) { closeSheet(); openReview(r.actions, r.reply, () => { input.value = ''; }); }
-  else if (r.sources?.length) { closeSheet(); input.value = ''; CHAT.push({ role: 'me', text: t }, { role: 'bot', text: r.reply, sources: r.sources, entry: r.entry }); go('ask'); }
+  else if (r.sources?.length || r.links?.length) { closeSheet(); input.value = ''; CHAT.push({ role: 'me', text: t }, { role: 'bot', text: r.reply, sources: r.sources, entry: r.entry, links: r.links }); go('ask'); }
   else toast(r.reply || 'No encontré cambios que hacer', { ms: 5000 });
 }
 
@@ -1503,6 +1580,8 @@ const ACTIONS = {
   ics: (el) => { const it = getItem(el.dataset.id); if (it) shareOrDownload('recordatorio.ics', icsFor(it), 'text/calendar', false); },
   cat: (el) => go('lists', { cat: el.dataset.id, showDone: false }),
   back: () => go('lists'),
+  diag: () => runDiag(),
+  closeSheet: () => closeSheet(),
   toggleDone: () => { UI.showDone = !UI.showDone; render(); },
   webToggle: (el) => { lsSet(WEB_STORE, el.checked ? 'on' : 'off'); toast(el.checked ? 'Búsqueda en internet activada' : 'Búsqueda en internet desactivada'); render(); },
   saveWhere: () => { snapshot(); S.profile.shopWhere = $('#whereIn').value.trim(); save(); toast('Ubicación guardada'); },
