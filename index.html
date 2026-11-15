@@ -176,6 +176,7 @@ label.lbl{display:block; font-size:12px; font-weight:600; color:var(--muted); ma
 .bubble.bot b{color:var(--mint); font-weight:600}
 .bubble .btn{margin-top:10px; min-height:40px; font-size:15px}
 .bubble.thinking{color:var(--muted); display:flex; gap:8px; align-items:center}
+.refining{display:flex; gap:8px; align-items:center; font-size:13px; color:var(--muted); margin:6px 0 2px}
 .applied{font-size:13px; color:var(--mint); margin-top:8px; display:flex; gap:6px; align-items:center}
 .ask-hero{display:flex; flex-direction:column; align-items:flex-start; gap:10px; margin:14px 2px 6px}
 .ask-hero .nx{width:52px; height:52px; border-radius:16px}
@@ -752,6 +753,14 @@ function thinkingChain(model) {
   if (/2\.5-pro/.test(model)) return [{ thinkingBudget: 128 }, null];
   return [null];
 }
+/* Modelos que Google limitó hace poco: se saltan hasta que se enfríen (cada modelo tiene su propio cupo gratis). */
+const COOL_STORE = 'cerebro.cool';
+const getCool = () => { try { return JSON.parse(lsGet(COOL_STORE) || '{}'); } catch { return {}; } };
+const coolLeft = (m) => Math.max(0, (getCool()[m] || 0) - Date.now());
+function coolDown(model, err) {
+  const ms = /hoy/.test(err.message) ? 6 * 3600e3 : /plan gratuito de Gemini\./.test(err.message) ? 24 * 3600e3 : Math.min(Math.max(err.retryMs || 0, 15000), 120000);
+  const c = getCool(); c[model] = Date.now() + ms; lsSet(COOL_STORE, JSON.stringify(c));
+}
 async function rawGenerate(model, key, body, ms) {
   const b = JSON.parse(JSON.stringify(body));
   const chain = thinkingChain(model);
@@ -774,39 +783,51 @@ async function rawGenerate(model, key, body, ms) {
     if (err.code === 'key') throw err;
     delete b.generationConfig.responseSchema; r = await post();
   }
-  // Límite por minuto del plan gratis: Google dice cuánto esperar; si es poco, espera y reintenta solo.
-  if (r.status === 429) {
-    const err = await apiError(r.clone());
-    const wait = err.retryMs || 0;
-    if (err.code === 'quota' && !/hoy|plan gratuito de Gemini\./.test(err.message) && wait <= 25000) {
-      for (let left = Math.ceil((wait || 8000) / 1000); left > 0; left--) { STATUS?.(`Gemini está ocupado, reintento en ${left} s…`); await sleep(1000); }
-      STATUS?.('Reintentando…');
-      r = await post();
-    }
-  }
-  // Saturado: espera y reintenta una vez.
-  if (r.status >= 500) { STATUS?.('Gemini está saturado, reintentando…'); await sleep(2500); r = await post(); }
+  // Límite del plan gratis: no espera aquí; se marca el modelo y generate() salta al siguiente.
+  if (r.status === 429) { const err = await apiError(r); coolDown(model, err); throw err; }
+  // Saturado: reintenta una vez rápido.
+  if (r.status >= 500) { await sleep(1200); r = await post(); }
   if (!r.ok) throw await apiError(r);
   const j = await r.json();
   const txt = (j.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || '').join('');
   if (!txt) throw gErr('Gemini no respondió' + (j.promptFeedback?.blockReason ? ` (${j.promptFeedback.blockReason})` : '') + '.', 'empty');
   return { txt, cand: j.candidates[0] };
 }
-/* Usa el modelo elegido y, si falla por modelo/cupo/saturación, prueba los de respaldo y se queda con el que funcione. */
-async function generate(body, key = getKey(), { prefer, ms, noFallback, timeoutFallback } = {}) {
+/* Usa el modelo elegido; si está limitado, saturado o lento, pasa al instante a otro modelo (cada uno tiene su cupo).
+   Solo si todos están limitados espera lo que Google indique (máx 30 s). */
+async function generate(body, key = getKey(), { prefer, ms = 25000, noFallback, timeoutFallback, max = 4 } = {}) {
   await ensureModels(key);
   const first = prefer && MODELS.includes(prefer) ? prefer : getModel();
-  const backups = rankModels(MODELS).filter((m) => m !== first && !/-pro/.test(m)).slice(0, 3);
-  let firstErr;
-  for (const model of [first, ...backups]) {
+  const pool = [first, ...rankModels(MODELS).filter((m) => m !== first && !/-pro/.test(m))].slice(0, noFallback ? 1 : max);
+  const order = [...pool.filter((m) => !coolLeft(m)), ...pool.filter((m) => coolLeft(m)).sort((a, b) => coolLeft(a) - coolLeft(b))];
+  const retryable = ['model', 'quota', 'busy', 'empty', ...(timeoutFallback ? ['timeout', 'net'] : [])];
+  let firstErr, timeouts = 0;
+  for (const model of order) {
+    if (coolLeft(model) && model !== order[0]) continue;
+    if (coolLeft(model)) {
+      const left = coolLeft(model);
+      if (left > 30000) { firstErr ||= gErr('Gemini gratis llegó a su límite por ahora. Intenta en unos minutos.', 'quota'); break; }
+      for (let s = Math.ceil(left / 1000); s > 0; s--) { STATUS?.(`Gemini está ocupado, reintento en ${s} s…`); await sleep(1000); }
+    }
     try {
       const res = await rawGenerate(model, key, body, ms);
       if (model !== first && !prefer) lsSet(MODEL_STORE, model);
       return res;
     } catch (e) {
-      if (!firstErr) { firstErr = e; firstErr.message += ` (${model})`; }
-      if (noFallback || !['model', 'quota', 'busy', ...(timeoutFallback ? ['timeout', 'net'] : [])].includes(e.code)) break;
-      STATUS?.('Probando con otro modelo…');
+      if (!firstErr || (firstErr.code === 'quota' && e.code !== 'quota')) firstErr = e;
+      if (e.code === 'timeout' && ++timeouts >= 2) break;
+      if (noFallback || !retryable.includes(e.code)) break;
+      STATUS?.(e.code === 'quota' ? 'Cambiando a otro modelo de Gemini…' : 'Probando con otro modelo…');
+    }
+  }
+  // Todos limitados por minuto: espera al que se libere primero y reintenta una vez.
+  if (firstErr?.code === 'quota' && !noFallback && !/hoy|plan gratuito de Gemini\./.test(firstErr.message)) {
+    const m = [...pool].sort((a, b) => coolLeft(a) - coolLeft(b))[0];
+    const left = coolLeft(m);
+    if (left <= 30000) {
+      for (let s = Math.ceil(left / 1000); s > 0; s--) { STATUS?.(`Gemini está ocupado, reintento en ${s} s…`); await sleep(1000); }
+      STATUS?.('Reintentando…');
+      try { return await rawGenerate(m, key, body, ms); } catch (e) { firstErr = e; }
     }
   }
   throw firstErr;
@@ -827,7 +848,7 @@ function parseJSON(txt) {
   throw new Error('No entendí la respuesta de Gemini. Intenta de nuevo.');
 }
 const liteModel = () => rankModels(MODELS).find((m) => /lite/.test(m) && /gemini-([3-9]|\d\d)/.test(m)) || rankModels(MODELS).find((m) => /lite/.test(m)) || getModel();
-async function gemini({ system, parts, history = [], schema, prefer, ms = 40000 }) {
+async function gemini({ system, parts, history = [], schema, prefer, ms = 25000, max }) {
   if (!getKey()) throw new Error('Conecta Gemini en Ajustes.');
   const body = {
     systemInstruction: { parts: [{ text: system }] },
@@ -835,7 +856,7 @@ async function gemini({ system, parts, history = [], schema, prefer, ms = 40000 
     generationConfig: { temperature: 0.4, responseMimeType: 'application/json' },
   };
   if (schema) body.generationConfig.responseSchema = schema;
-  return parseJSON((await generate(body, getKey(), { prefer, ms, timeoutFallback: true })).txt);
+  return parseJSON((await generate(body, getKey(), { prefer, ms, timeoutFallback: true, max })).txt);
 }
 
 /* ============================== Internet (Google Search vía Gemini) ============================== */
@@ -941,12 +962,24 @@ function bestImage(list) {
   const best = urls.map((u) => [u, score(u)]).filter((e) => e[1] >= 0).sort((a, b) => b[1] - a[1])[0];
   return best ? best[0] : '';
 }
+const SEARCH_CACHE = new Map();
 async function tavilySearch(query, key = getTavily(), near = false) {
+  const ck = `${query}|${near}|${shopWhere()}`, hit = SEARCH_CACHE.get(ck);
+  if (hit && Date.now() - hit.ts < 10 * 60e3) return hit.res;
+  const res = await tavilySearch0(query, key, near);
+  SEARCH_CACHE.set(ck, { ts: Date.now(), res });
+  return res;
+}
+async function tavilySearch0(query, key, near) {
   const c = shopCountry();
   let q = norm(query).includes(norm(c.name)) ? query : `${query} ${c.name}`;
   if (near && !norm(q).includes(norm(homeComuna()))) q = `${query} ${homeComuna()} ${c.name}`;
-  const body = { query: q.slice(0, 380), search_depth: 'basic', max_results: 8, include_answer: false, include_images: true, topic: 'general', country: c.tav };
-  const post = (b) => gfetch('https://api.tavily.com/search', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` }, body: JSON.stringify(b) }, 25000, 'La búsqueda');
+  const shop = !near && SHOP_HINT.test(norm(query));
+  const body = { query: q.slice(0, 380), search_depth: 'basic', max_results: 8, include_answer: shop ? false : 'basic', include_images: true, topic: 'general', country: c.tav };
+  const post = (b) => gfetch('https://api.tavily.com/search', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` }, body: JSON.stringify(b) }, 15000, 'La búsqueda');
+  // Compras: busca a la vez en todo internet y solo en tiendas del país (más rápido que una después de otra).
+  const localP = c.code !== 'us' && !near && LOCAL_DOMAINS[c.code]
+    ? post({ ...body, include_answer: false, include_domains: LOCAL_DOMAINS[c.code], max_results: 10 }).then((x) => (x.ok ? x.json() : null)).catch(() => null) : null;
   let r = await post(body);
   if (r.status === 400) { delete body.country; r = await post(body); }
   if (r.status >= 500) { await sleep(1500); r = await post(body); }
@@ -962,15 +995,8 @@ async function tavilySearch(query, key = getTavily(), near = false) {
   let results = (j.results || []).filter((x) => x.url);
   if (c.code !== 'us' && !near) {
     let local = results.filter((x) => isLocalUrl(x.url, c));
-    // Pocas tiendas locales: segunda búsqueda solo en tiendas de ese país.
-    if (local.length < 3 && LOCAL_DOMAINS[c.code]) {
-      STATUS?.(`Buscando en tiendas de ${c.name}…`);
-      const r2 = await post({ ...body, include_domains: LOCAL_DOMAINS[c.code], max_results: 10 });
-      if (r2.ok) {
-        const j2 = await r2.json();
-        for (const x of j2.results || []) if (x.url && isLocalUrl(x.url, c) && !local.some((y) => y.url === x.url)) local.push(x);
-      }
-    }
+    const j2 = localP ? await localP : null;
+    for (const x of j2?.results || []) if (x.url && isLocalUrl(x.url, c) && !local.some((y) => y.url === x.url)) local.push(x);
     // Si es una pregunta general (clima, horarios) y no hay tiendas, se usan los resultados normales.
     results = local.length ? local : (SHOP_HINT.test(norm(query)) ? [] : results);
   }
@@ -978,7 +1004,8 @@ async function tavilySearch(query, key = getTavily(), near = false) {
   return {
     text: results.map((x, i) => `${i + 1}. ${x.title || domainOf(x.url)} — ${x.url}\n${String(x.content || '').replace(/\s+/g, ' ').slice(0, 450)}`).join('\n\n'),
     sources: results.map((x) => ({ title: domainOf(x.url), uri: x.url })).filter((x, i, a) => a.findIndex((y) => y.title === x.title) === i).slice(0, 8),
-    entry: '', query, engine: 'tavily', near,
+    entry: '', query, engine: 'tavily', near, answer: String(j.answer || '').trim(),
+    results: results.map((x) => ({ title: String(x.title || ''), url: x.url, content: String(x.content || ''), img: bestImage(x.images) })),
     images: Object.fromEntries(results.map((x) => [x.url, bestImage(x.images)]).filter((e) => e[1])),
     poolImages: (j.images || []).map((im) => (typeof im === 'string' ? im : im?.url)).filter(Boolean),
   };
@@ -1147,36 +1174,110 @@ ${memoryText().slice(0, 6000)}`;
     return String(r.query || '').trim().slice(0, 200);
   } catch (e) { if (e.code === 'key') throw e; return ''; }
 }
+/* ---------- Búsqueda rápida: resultados en segundos sin esperar a Gemini; Gemini afina después si puede. ---------- */
+const FILLER = /\b(por favor|porfa|recomi[eé]ndame|recomienda(me)?|b[uú]s?came|busca(r|me)?|encu[eé]ntrame|encuentra|investiga|cotiza(me)?|compara(me)?( precios)?|quiero|necesito|me (puedes|podr[ií]as)|puedes|podr[ií]as|arma(me)?( una)?( lista( de compras?)?)?|dame|mu[eé]strame|con (los )?(links?|enlaces)|y gu[aá]rda(lo|los|la|las|me)?( en [^,.]+)?|gu[aá]rda(lo|los|la|las)|al mejor precio|(el|los) mejor(es)? precios?|m[aá]s barat[oa]s?|d[oó]nde (compro|venden|comprar|lo consigo|puedo comprar)|cu[aá]nto (cuesta|vale|cuestan|valen)|en internet|en l[ií]nea|online|cerca de (m[ií]|aqu[ií]|mi casa)|por aqu[ií]|algun[oa]s?|un|un[oa]s?|bueno?s?|buena?s?|mejores)(?![\wáéíóúñ])/gi;
+function localQuery(text, near) {
+  let q = String(text || '').replace(FILLER, ' ').replace(/[¿?¡!.,;:]+/g, ' ').replace(/\b(de|para|en|el|la|los|las|me|mi|mis|que|y)(\s+(de|para|en|el|la|los|las|me|mi|mis|que|y))+\b/gi, ' $1 ').replace(/^\s*(de|para|en|el|la|los|las|me|que|y)\s+/i, '').replace(/\s+(de|para|en|el|la|los|las|me|que|y)\s*$/i, '').replace(/\s+/g, ' ').trim();
+  // "la comida de mis mascotas", "los perfumes de Maru": usa lo que ya está guardado para precisar la búsqueda.
+  if (/\b(mis?|sus?|nuestr[oa]s?)\b/i.test(text) || (spouse() && norm(text).includes(norm(spouse())))) {
+    const top = localSearch(text)[0];
+    if (top && top.title.length < 80) q = top.title;
+  }
+  if (q.split(' ').length < 1 || q.length < 3) q = String(text || '').slice(0, 120);
+  if (!near && (SHOP_HINT.test(norm(text)) || /(cuanto (cuesta|vale)|barat|compr|oferta)/.test(norm(text))) && !/precio/i.test(q)) q += ' precio';
+  return q.slice(0, 160);
+}
+const STORE_NAMES = { 'falabella.com': 'Falabella', 'mercadolibre.cl': 'Mercado Libre', 'ripley.cl': 'Ripley', 'paris.cl': 'Paris', 'lider.cl': 'Líder', 'jumbo.cl': 'Jumbo', 'sodimac.cl': 'Sodimac', 'hites.com': 'Hites', 'lapolar.cl': 'La Polar', 'abcdin.cl': 'Abcdin', 'pcfactory.cl': 'PC Factory', 'preunic.cl': 'Preunic', 'cruzverde.cl': 'Cruz Verde', 'salcobrand.cl': 'Salcobrand', 'dbs.cl': 'DBS', 'perfumeriasunidas.cl': 'Perfumerías Unidas', 'silkperfumes.cl': 'Silk Perfumes', 'eliteperfumes.cl': 'Elite Perfumes', 'superzoo.cl': 'SuperZoo', 'puntomascotas.cl': 'Punto Mascotas', 'tusmascotas.cl': 'Tus Mascotas', 'santaisabel.cl': 'Santa Isabel', 'tottus.cl': 'Tottus', 'unimarc.cl': 'Unimarc', 'easy.cl': 'Easy', 'tripadvisor.cl': 'Tripadvisor', 'tripadvisor.com': 'Tripadvisor', 'google.com': 'Google' };
+function storeName(u) {
+  const h = domainOf(u);
+  for (const [d, n] of Object.entries(STORE_NAMES)) if (h === d || h.endsWith('.' + d)) return n;
+  const base = h.replace(/\.(com|net|org|co)?\.?(cl|mx|ar|es|com)$/, '').split('.').pop() || h;
+  return base.charAt(0).toUpperCase() + base.slice(1);
+}
+function findPrice(txt) {
+  const nums = [...String(txt).matchAll(/(?:\$|CLP)\s?(\d{1,3}(?:[.\s]\d{3})+|\d{4,7})(?!\s?%)/g)].map((x) => +x[1].replace(/\D/g, '')).filter((n) => n >= 500 && n < 50000000);
+  // "Antes $289.990 Ahora $219.990": el menor, ignorando montos chicos como el despacho.
+  const top = Math.max(...nums, 0);
+  return nums.filter((n) => n >= top * 0.3).sort((a, b) => a - b)[0] || 0;
+}
+function cleanTitle(t, store) {
+  let x = String(t || '').split(/\s+[|–—]\s+|\s+-\s+(?=[^-]*$)/)[0].trim();
+  if (norm(x) === norm(store) || x.length < 4) x = String(t || '').trim();
+  return x.replace(/\s*(\||-)\s*(falabella|paris|ripley|mercado ?libre|lider|jumbo)[^|]*$/i, '').slice(0, 110);
+}
+function guessCategory(text) {
+  const n = norm(text);
+  if (/mascot|perr|gat|croquet|alimento para/.test(n)) return S.cats.find((c) => /mascot/.test(norm(c.name)))?.id || 'Mascotas';
+  const hit = RULES.find(([re, id]) => re.test(n) && cat(id));
+  return hit ? hit[1] : cat('compras') ? 'compras' : 'notas';
+}
+const STREET_RE = /((?:Av(?:enida)?\.?|Calle|Pje\.?|Pasaje|Avda\.?)\s+[A-ZÁÉÍÓÚÑa-záéíóúñ.' ]{3,40}?\s#?\d{2,5})/;
+function localProducts(web, text) {
+  const c = shopCountry(), catg = guessCategory(text);
+  const out = (web.results || []).map((x) => {
+    const store = storeName(x.url);
+    if (web.near) {
+      const st = (x.content.match(STREET_RE) || [])[1];
+      return { img: x.img || '', name: cleanTitle(x.title, store), store, address: st ? `${st.trim()}, ${homeComuna()}` : homeComuna(), price: '', url: x.url, note: '', category: 'notas' };
+    }
+    const n = findPrice(x.title + ' ' + x.content);
+    return { img: x.img || '', name: cleanTitle(x.title, store), store, address: '', price: n ? (c.code === 'cl' ? '$' + n.toLocaleString('es-CL') : '$' + n.toLocaleString()) : '', _n: n, url: x.url, note: '', category: catg };
+  }).filter((p) => p.name && p.url);
+  if (!web.near) out.sort((a, b) => (a._n ? 0 : 1) - (b._n ? 0 : 1) || a._n - b._n);
+  return out.slice(0, 6).map(({ _n, ...p }) => p);
+}
+function localReply(web, products) {
+  const c = shopCountry();
+  if (!products.length) return web.answer || 'Esto encontré en internet:';
+  if (web.near) return `Encontré **${products.length} opciones cerca de ${homeComuna()}**. Toca **Ruta** para llegar.`;
+  const p = products[0];
+  return p.price ? `**Más barato:** ${p.name} en **${p.store}** a **${p.price}**. Te dejo ${products.length} opciones en tiendas de ${c.name}.`
+    : `Encontré **${products.length} opciones** en tiendas de ${c.name}. Toca **Ver** para revisar el precio.`;
+}
+async function searchFlow(q, text, near, parts, history, onStatus) {
+  onStatus?.(near ? `Buscando cerca de ti en ${homeComuna()}…` : 'Buscando en internet…');
+  let web;
+  try { web = await webSearch(q, text || '', near); }
+  catch (e) {
+    const links = searchLinks(q, text || '');
+    if (getTavily()) return { reply: `No pude buscar en internet: ${e.message}\n\nTe dejo la búsqueda lista:`, actions: [], links, products: [], sources: [] };
+    if (['quota', 'key', 'bad', 'model'].includes(e.code)) return { reply: 'Para buscar en internet, agrega tu clave gratis de **Tavily** en Ajustes → Internet.\n\nMientras, te dejo la búsqueda lista:', actions: [], links, products: [], sources: [] };
+    return { reply: 'No pude buscar en internet (' + e.message + '). Te dejo la búsqueda lista:', actions: [], links, products: [], sources: [] };
+  }
+  if (web.engine !== 'tavily') {
+    // Búsqueda con Gemini (sin Tavily): Gemini ordena el resultado.
+    onStatus?.(near ? 'Eligiendo los más cercanos…' : 'Comparando precios…');
+    const r = await gemini({ system: commandSystem(web), parts, history, schema: CMD_SCHEMA });
+    const products = cleanProducts(r.products, web);
+    return { reply: String(r.reply || ''), actions: products.length ? [] : cleanActions(r.actions), sources: web.sources, entry: web.entry, links: [], products };
+  }
+  const products = localProducts(web, text);
+  const res = { reply: localReply(web, products), actions: [], sources: web.sources, entry: '', links: products.length ? [] : searchLinks(q, text || '').slice(0, 2), products };
+  // Gemini afina en segundo plano (mejores nombres, descarta lo que no sirve). Si falla o está limitado, queda lo rápido.
+  if (hasAI()) res.refine = async () => {
+    await ensureModels();
+    const r = await gemini({ system: commandSystem(web), parts, history: history.slice(-4), schema: CMD_SCHEMA, prefer: liteModel(), ms: 18000, max: 2 });
+    const ps = cleanProducts(r.products, web);
+    if (!ps.length && products.length) return null;
+    const reply = String(r.reply || '').trim();
+    if (!reply || NO_WEB_REPLY.test(norm(reply))) return null;
+    return { reply, products: ps };
+  };
+  return res;
+}
 async function aiCommand0(text, img, history, onStatus, parts) {
-  let r = null, q = '';
   const nt = norm(text || '');
   const near = webOn() && !img && NEAR.test(nt) && /(cerca|recomien|sugier|busca|donde|algun|quiero (ir|comer|tomar)|abiert|mejor|bueno|rico)/.test(nt);
   const wantsWeb = webOn() && !img && (WEB_STRONG.test(nt) || near);
   if (geoOn() && (wantsWeb || near)) { try { await refreshGeo(); } catch (e) { if (near) onStatus?.('Sin ubicación actual: uso la última conocida'); } }
-  if (wantsWeb) { onStatus?.(near ? `Buscando cerca de ti en ${homeComuna()}…` : 'Preparando la búsqueda…'); q = await makeQuery(text, history, near) || (text || '').slice(0, 300); }
-  else {
-    r = await gemini({ system: commandSystem(), parts, history, schema: CMD_SCHEMA });
-    q = String(r.web || '').trim();
-  }
-  let web = null;
-  // Si la petición claramente pide internet, o Gemini dice que "no tiene acceso", busca de todos modos.
-  if (!q && webOn() && r && NO_WEB_REPLY.test(norm(r.reply || ''))) q = (text || '').slice(0, 300);
-  if (q && webOn()) {
-    onStatus?.('Buscando en internet…');
-    try { web = await webSearch(q, text || '', near); }
-    catch (e) {
-      const links = searchLinks(q, text || '');
-      if (getTavily()) return { reply: `No pude buscar en internet: ${e.message}\n\nTe dejo la búsqueda lista:`, actions: [], links };
-      if (['quota', 'key', 'bad', 'model'].includes(e.code)) {
-        return { reply: `Para buscar en internet, agrega tu clave gratis de **Tavily** en Ajustes → Internet.\n\nMientras, te dejo la búsqueda lista:`, actions: [], links };
-      }
-      return { reply: 'No pude buscar en internet (' + e.message + '). Te dejo la búsqueda lista:', actions: [], links };
-    }
-    onStatus?.(near ? 'Eligiendo los más cercanos…' : 'Comparando precios…');
-    r = await gemini({ system: commandSystem(web), parts, history, schema: CMD_SCHEMA, ms: 45000 });
-  }
-  const products = web ? cleanProducts(r.products, web) : [];
-  return { reply: String(r.reply || ''), actions: products.length ? [] : cleanActions(r.actions), sources: web?.sources || [], entry: web?.entry || '', links: [], products };
+  // Pedido claro de internet: se busca directo, sin gastar una pregunta de Gemini en armar la búsqueda.
+  if (wantsWeb) return searchFlow(getTavily() ? localQuery(text, near) : (await makeQuery(text, history, near) || (text || '').slice(0, 300)), text, near, parts, history, onStatus);
+  const r = await gemini({ system: commandSystem(), parts, history, schema: CMD_SCHEMA });
+  let q = String(r.web || '').trim();
+  // Si Gemini dice que "no tiene acceso", busca de todos modos.
+  if (!q && webOn() && NO_WEB_REPLY.test(norm(r.reply || ''))) q = (text || '').slice(0, 300);
+  if (q && webOn()) return searchFlow(q, text, false, parts, history, onStatus);
+  return { reply: String(r.reply || ''), actions: cleanActions(r.actions), sources: [], entry: '', links: [], products: [] };
 }
 
 /* sin IA */
@@ -1366,6 +1467,21 @@ function botMsg(r, extra = {}) {
   const dest = r.products?.length ? (r.products.find((p) => p.category)?.category || '') : '';
   return { role: 'bot', text: r.reply, actions: r.actions, sources: r.sources, entry: r.entry, links: r.links, products: r.products, dest: findCat(dest)?.id || (dest ? 'new:' + dest : 'notas'), ...extra };
 }
+/* Cuando Gemini termina de afinar una búsqueda, actualiza la tarjeta (si aún no se guardó nada). */
+function attachRefine(msg, r) {
+  if (!r.refine) return;
+  msg.refining = true;
+  r.refine().then((x) => {
+    if (!x || msg.products?.some((p) => p.saved)) return;
+    const nb = botMsg({ ...x, actions: [] });
+    msg.text = x.reply;
+    // Lo afinado va primero; se mantienen las demás opciones encontradas.
+    if (nb.products?.length) {
+      const rest = (msg.products || []).filter((p) => !nb.products.some((q) => q.url === p.url));
+      msg.products = [...nb.products, ...rest].slice(0, 6); msg.dest = nb.dest;
+    }
+  }).catch(() => {}).finally(() => { msg.refining = false; if (UI.tab === 'ask') render(); });
+}
 function destName(d) { return d.startsWith('new:') ? d.slice(4) : catName(d); }
 const mapsUrl = (p) => `https://maps.apple.com/?daddr=${encodeURIComponent(`${p.name}, ${p.address}${/santiago|chile/i.test(p.address) ? '' : ', Santiago, Chile'}`)}&dirflg=d`;
 function productsHtml(m, i) {
@@ -1439,7 +1555,7 @@ function viewAsk() {
   const msgs = CHAT.map((m, i) => {
     if (m.role === 'me') return `<div class="bubble me">${esc(m.text)}</div>`;
     const body = m.thinking ? `<span class="spin"></span> ${esc(m.status || 'Pensando…')} <span class="el muted" data-t0="${m.t0 || Date.now()}"></span>`
-      : (m.html || mdLite(m.text)) + (m.products?.length ? productsHtml(m, i) : sourcesHtml(m));
+      : (m.html || mdLite(m.text)) + (m.refining ? '<div class="refining"><span class="spin"></span> Afinando la recomendación…</div>' : '') + (m.products?.length ? productsHtml(m, i) : sourcesHtml(m));
     const act = m.actions?.length
       ? m.applied ? `<div class="applied">${ic('check', 'sm')} Cambios aplicados</div>`
         : `<button class="btn primary" data-act="chatReview" data-i="${i}">Revisar y aplicar ${m.actions.length} cambio${m.actions.length > 1 ? 's' : ''}</button>`
@@ -1528,7 +1644,7 @@ function viewSettings() {
     <button class="set-row danger" data-act="wipe">${ic('trash')}<span class="nm">Borrar toda la memoria</span></button>
   </div>
   <p class="help">Tu información vive solo en este teléfono. Haz un respaldo de vez en cuando y guárdalo en iCloud Drive (Archivos).</p>
-  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v4.3</p>`;
+  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v4.4</p>`;
 }
 
 function afterRender() {
@@ -1798,7 +1914,9 @@ async function doCapture(btn) {
   if (!r) { if (text) openReview(localClassify(text), 'Sin IA en este momento: revisa antes de guardar.', clear); return; }
   if (r.actions.length) return openReview(r.actions, r.reply, clear);
   // sin cambios: fue una pregunta → la respuesta va al chat
-  CHAT.push({ role: 'me', text: text || '(imagen)' }, botMsg(r, { text: r.reply || 'No encontré nada que guardar.' }));
+  const bm = botMsg(r, { text: r.reply || 'No encontré nada que guardar.' });
+  CHAT.push({ role: 'me', text: text || '(imagen)' }, bm);
+  attachRefine(bm, r);
   pendingImg = null;
   go('ask');
 }
@@ -1819,6 +1937,7 @@ async function doAsk(q) {
   try {
     const r = await aiCommand(q, null, history, (st) => { thinking.status = st; if (UI.tab === 'ask') render(); });
     Object.assign(thinking, botMsg(r, { thinking: false, text: r.reply || (r.actions.length ? 'Te propongo estos cambios.' : 'Listo.') }));
+    attachRefine(thinking, r);
   } catch (e) {
     Object.assign(thinking, { thinking: false, text: 'Hubo un problema: ' + e.message });
   }
