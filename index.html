@@ -201,9 +201,13 @@ label.lbl{display:block; font-size:12px; font-weight:600; color:var(--muted); ma
 .pc-store{font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:600}
 .pc-name{font-size:16px; font-weight:600; margin-top:4px; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
 .pc-price{font-size:26px; font-weight:700; color:var(--mint); margin-top:4px; letter-spacing:-.01em}
+.geo-now{display:flex; gap:12px; align-items:center; margin-top:14px; padding:12px; border-radius:14px; background:var(--surface2)}
+.geo-now > .ic{color:var(--mint); width:22px; height:22px; flex:none}
+.pc-addr{display:flex; gap:5px; align-items:flex-start; font-size:14px; color:var(--lav); margin-top:4px; line-height:1.35}
+.pc-addr .ic{width:14px; height:14px; flex:none; margin-top:2px}
 .pc-note{font-size:14px; color:var(--muted); margin-top:2px}
 .pc-actions{display:flex; gap:8px; margin-top:auto; padding-top:12px}
-.pc-actions .btn{flex:1; min-height:42px; margin:0; font-size:15px; gap:6px}
+.pc-actions .btn{flex:1; min-height:42px; margin:0; font-size:15px; gap:6px; white-space:nowrap; padding-left:10px; padding-right:10px}
 .pc-actions .btn.is-saved{background:transparent; color:var(--mint); border:1px solid var(--mint); opacity:1}
 .pc-hint{display:flex; align-items:center; justify-content:center; gap:6px; font-size:13px; color:var(--muted); margin:4px 0 0}
 .pc-hint .ic{width:12px; height:12px}
@@ -396,6 +400,8 @@ const ICONS = {
   alert: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16h.01"/>',
   link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
   globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+  pin: '<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+  nav: '<path d="M3 11l18-8-8 18-2-8-8-2z"/>',
   key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/>',
 };
 const ic = (name, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ICONS.folder}</svg>`;
@@ -663,29 +669,40 @@ const API = 'https://generativelanguage.googleapis.com/v1beta';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function gErr(msg, code) { const e = new Error(msg); e.code = code; return e; }
 async function apiError(r) {
-  const e = await apiError0(r); e.status = r.status; e.raw = apiError.lastMsg; return e;
+  const e = await apiError0(r); e.status = r.status; e.raw = apiError.lastMsg; e.retryMs = apiError.retryMs; return e;
 }
 async function apiError0(r) {
   let msg = '';
-  try { msg = (await r.json()).error?.message || ''; } catch {}
+  apiError.retryMs = 0;
+  try {
+    const j = (await r.json()).error || {};
+    msg = j.message || '';
+    const ri = (j.details || []).find((d) => /RetryInfo/.test(d['@type'] || ''));
+    if (ri?.retryDelay) apiError.retryMs = Math.ceil(parseFloat(ri.retryDelay) * 1000);
+  } catch {}
+  if (!apiError.retryMs) { const m = msg.match(/retry in ([\d.]+)\s*s/i); if (m) apiError.retryMs = Math.ceil(parseFloat(m[1]) * 1000); }
   apiError.lastMsg = msg;
   if (r.status === 400 && /api.?key/i.test(msg)) return gErr('La clave de Gemini no es válida. Revísala en Ajustes.', 'key');
   if (r.status === 401 || r.status === 403) return gErr('Gemini rechazó la clave (' + r.status + '). Verifica que esté activa.', 'key');
   if (r.status === 404) return gErr('Ese modelo no está disponible para tu clave.', 'model');
-  if (r.status === 429) return gErr(/limit:\s*0|free_tier/i.test(msg) ? 'Este modelo no está incluido en tu plan gratuito.' : 'Llegaste al límite de uso de Gemini. Espera un minuto.', 'quota');
+  if (r.status === 429) {
+    if (/limit:\s*0\b/i.test(msg)) return gErr('Esta función no está incluida en el plan gratuito de Gemini.', 'quota');
+    if (/per\s*day|PerDay|daily/i.test(msg)) return gErr('Gemini gratis llegó a su límite de hoy. Se renueva mañana.', 'quota');
+    return gErr('Gemini gratis permite pocas preguntas por minuto. Espera unos segundos y vuelve a intentar.', 'quota');
+  }
   if (r.status >= 500) return gErr('Gemini está saturado en este momento (' + r.status + ').', 'busy');
   return gErr('Gemini: ' + (msg || 'error ' + r.status), r.status === 400 ? 'bad' : 'other');
 }
-async function gfetch(url, opts = {}, ms = 30000) {
+async function gfetch(url, opts = {}, ms = 30000, label = 'Gemini') {
   for (let attempt = 0; ; attempt++) {
     const ac = new AbortController(); const t = setTimeout(() => ac.abort(), ms);
     try { return await fetch(url, { ...opts, signal: ac.signal }); }
     catch (e) {
-      if (e.name === 'AbortError') throw gErr('Gemini tardó demasiado en responder.', 'timeout');
+      if (e.name === 'AbortError') throw gErr(`${label} tardó demasiado en responder.`, 'timeout');
       if (navigator.onLine === false) throw gErr('Sin conexión a internet.', 'offline');
       // iPhone corta a veces la conexión (cambio de red, app en segundo plano): reintenta una vez.
       if (attempt < 1) { await sleep(1200); continue; }
-      throw gErr('Se cortó la conexión con Gemini. Mantén la app abierta e intenta de nuevo.', 'net');
+      throw gErr(`Se cortó la conexión con ${label}. Mantén la app abierta e intenta de nuevo.`, 'net');
     } finally { clearTimeout(t); }
   }
 }
@@ -726,23 +743,49 @@ function thinkingFor(model) {
   return null;
 }
 let MODELS = [];
+let STATUS = null; // muestra en pantalla lo que está pasando (reintentos, esperas)
+const THINK_STORE = 'cerebro.think.';
+/* Opciones de "pensamiento" de menor a mayor; se recuerda la primera que el modelo acepta. */
+function thinkingChain(model) {
+  if (/gemini-([3-9]|\d\d)/.test(model)) return [{ thinkingLevel: 'minimal' }, { thinkingLevel: 'low' }, { thinkingBudget: 0 }, null];
+  if (/2\.5-flash|flash-latest|flash-lite-latest/.test(model)) return [{ thinkingBudget: 0 }, null];
+  if (/2\.5-pro/.test(model)) return [{ thinkingBudget: 128 }, null];
+  return [null];
+}
 async function rawGenerate(model, key, body, ms) {
   const b = JSON.parse(JSON.stringify(body));
-  const th = thinkingFor(model);
-  if (th) b.generationConfig.thinkingConfig = th;
+  const chain = thinkingChain(model);
+  let k = Math.min(+(lsGet(THINK_STORE + model) || 0), chain.length - 1);
+  const setTh = () => { if (chain[k]) b.generationConfig.thinkingConfig = chain[k]; else delete b.generationConfig.thinkingConfig; };
+  setTh();
   const post = () => gfetch(`${API}/models/${encodeURIComponent(model)}:generateContent`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(b),
   }, ms);
   let r = await post();
-  // 400 por configuración (pensamiento o esquema) en modelos que no la aceptan: reintenta más simple.
-  if (r.status === 400) {
+  // 400 por configuración: prueba el siguiente nivel de pensamiento (sin saltar a "pensar mucho", que es lento).
+  while (r.status === 400 && k < chain.length - 1) {
     const err = await apiError(r.clone());
     if (err.code === 'key') throw err;
-    delete b.generationConfig.thinkingConfig; delete b.generationConfig.responseSchema;
+    k++; setTh(); lsSet(THINK_STORE + model, String(k));
     r = await post();
   }
+  if (r.status === 400 && b.generationConfig.responseSchema) {
+    const err = await apiError(r.clone());
+    if (err.code === 'key') throw err;
+    delete b.generationConfig.responseSchema; r = await post();
+  }
+  // Límite por minuto del plan gratis: Google dice cuánto esperar; si es poco, espera y reintenta solo.
+  if (r.status === 429) {
+    const err = await apiError(r.clone());
+    const wait = err.retryMs || 0;
+    if (err.code === 'quota' && !/hoy|plan gratuito de Gemini\./.test(err.message) && wait <= 25000) {
+      for (let left = Math.ceil((wait || 8000) / 1000); left > 0; left--) { STATUS?.(`Gemini está ocupado, reintento en ${left} s…`); await sleep(1000); }
+      STATUS?.('Reintentando…');
+      r = await post();
+    }
+  }
   // Saturado: espera y reintenta una vez.
-  if (r.status >= 500) { await sleep(2000); r = await post(); }
+  if (r.status >= 500) { STATUS?.('Gemini está saturado, reintentando…'); await sleep(2500); r = await post(); }
   if (!r.ok) throw await apiError(r);
   const j = await r.json();
   const txt = (j.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || '').join('');
@@ -750,7 +793,7 @@ async function rawGenerate(model, key, body, ms) {
   return { txt, cand: j.candidates[0] };
 }
 /* Usa el modelo elegido y, si falla por modelo/cupo/saturación, prueba los de respaldo y se queda con el que funcione. */
-async function generate(body, key = getKey(), { prefer, ms, noFallback } = {}) {
+async function generate(body, key = getKey(), { prefer, ms, noFallback, timeoutFallback } = {}) {
   await ensureModels(key);
   const first = prefer && MODELS.includes(prefer) ? prefer : getModel();
   const backups = rankModels(MODELS).filter((m) => m !== first && !/-pro/.test(m)).slice(0, 3);
@@ -762,7 +805,8 @@ async function generate(body, key = getKey(), { prefer, ms, noFallback } = {}) {
       return res;
     } catch (e) {
       if (!firstErr) { firstErr = e; firstErr.message += ` (${model})`; }
-      if (noFallback || !['model', 'quota', 'busy'].includes(e.code)) break;
+      if (noFallback || !['model', 'quota', 'busy', ...(timeoutFallback ? ['timeout', 'net'] : [])].includes(e.code)) break;
+      STATUS?.('Probando con otro modelo…');
     }
   }
   throw firstErr;
@@ -782,7 +826,8 @@ function parseJSON(txt) {
   if (m) { try { return JSON.parse(m[0]); } catch {} }
   throw new Error('No entendí la respuesta de Gemini. Intenta de nuevo.');
 }
-async function gemini({ system, parts, history = [], schema }) {
+const liteModel = () => rankModels(MODELS).find((m) => /lite/.test(m) && /gemini-([3-9]|\d\d)/.test(m)) || rankModels(MODELS).find((m) => /lite/.test(m)) || getModel();
+async function gemini({ system, parts, history = [], schema, prefer, ms = 40000 }) {
   if (!getKey()) throw new Error('Conecta Gemini en Ajustes.');
   const body = {
     systemInstruction: { parts: [{ text: system }] },
@@ -790,13 +835,15 @@ async function gemini({ system, parts, history = [], schema }) {
     generationConfig: { temperature: 0.4, responseMimeType: 'application/json' },
   };
   if (schema) body.generationConfig.responseSchema = schema;
-  return parseJSON((await generate(body)).txt);
+  return parseJSON((await generate(body, getKey(), { prefer, ms, timeoutFallback: true })).txt);
 }
 
 /* ============================== Internet (Google Search vía Gemini) ============================== */
 const WEB_STORE = 'cerebro.web';
 const webOn = () => lsGet(WEB_STORE) !== 'off';
 const WEB_HINT = /(busca|buscar|buscame|investiga|internet|google|en linea|online|precio|cuanto cuesta|cuanto vale|barato|oferta|descuento|promocion|link|enlace|url|tienda|donde (compro|venden|comprar|lo consigo)|amazon|mercado ?libre|liverpool|walmart|costco|sephora|palacio de hierro|clima|horario|noticia|disponib|cotiza|compara)/;
+/* Pedidos claramente de buscar en internet (los demás los decide Gemini). */
+const WEB_STRONG = /(recomiendame|recomienda|cerca de mi|cerca de aqui|busca|buscame|buscar|encuentra|encuentrame|investiga|cotiza|compara precios|mejor precio|mas barato|cuanto cuesta|cuanto vale|donde (compro|venden|comprar|lo consigo|puedo comprar)|en internet|con links?|con enlaces|ofertas? de)/;
 const NO_WEB_REPLY = /(no tengo acceso|sin acceso a internet|no puedo (buscar|navegar|acceder)|tiempo real|no tengo conexion|no puedo consultar)/;
 const SHOP_HINT = /(precio|compra|comprar|tienda|barato|oferta|descuento|perfume|crema|serum|maquillaje|ropa|zapato|tenis|croqueta|comida para|alimento|juguete|regalo|amazon|mercado ?libre|liverpool|sephora|walmart|costco)/;
 /* Sin búsqueda automática: arma links de búsqueda listos para abrir en Safari. */
@@ -817,9 +864,63 @@ function searchLinks(q, original) {
   return out;
 }
 const DEFAULT_WHERE = 'Santiago, Región Metropolitana, Chile';
-const shopWhere = () => (S.profile.shopWhere || '').trim() || DEFAULT_WHERE;
+/* Ubicación real del iPhone (GPS) → comuna con OpenStreetMap. Se guarda solo en este teléfono. */
+const GEO_STORE = 'cerebro.geo', GEO_ON = 'cerebro.geo.on';
+const geoOn = () => lsGet(GEO_ON) === 'on';
+const getGeo = () => { try { return JSON.parse(lsGet(GEO_STORE) || 'null'); } catch { return null; } };
+const geoLabel = (g = getGeo()) => g ? [g.barrio, g.comuna, g.state, g.country].filter(Boolean).filter((x, i, a) => a.indexOf(x) === i).join(', ') : '';
+const shopWhere = () => (geoOn() && getGeo()?.comuna ? geoLabel() : '') || (S.profile.shopWhere || '').trim() || DEFAULT_WHERE;
+const homeComuna = () => (geoOn() && getGeo()?.comuna) || (S.profile.shopWhere || '').split(',')[0].trim() || 'Santiago';
+function getPosition(ms = 12000) {
+  return new Promise((res, rej) => {
+    if (!navigator.geolocation) return rej(gErr('Este teléfono no permite leer la ubicación.', 'geo'));
+    navigator.geolocation.getCurrentPosition((p) => res(p.coords), (e) => rej(gErr(e.code === 1
+      ? 'Nexo no tiene permiso para usar tu ubicación. Actívalo en Ajustes del iPhone → Privacidad y seguridad → Localización → Sitios web de Safari → "Al usar la app".'
+      : 'No pude leer tu ubicación ahora. Intenta de nuevo.', 'geo')), { enableHighAccuracy: false, timeout: ms, maximumAge: 5 * 60 * 1000 });
+  });
+}
+async function reverseGeo(lat, lon) {
+  const r = await gfetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=17&accept-language=es`, {}, 12000, 'El mapa');
+  if (!r.ok) throw gErr('No pude reconocer tu comuna.', 'geo');
+  const a = (await r.json()).address || {};
+  return { comuna: a.suburb || a.city_district || a.town || a.municipality || a.village || a.city || '', barrio: a.neighbourhood || a.quarter || '', city: a.city || '', state: a.state || '', country: a.country || '', cc: (a.country_code || '').toLowerCase() };
+}
+/* Lee la ubicación si la guardada tiene más de 20 min (o si se fuerza). Redondea a ~100 m por privacidad. */
+async function refreshGeo(force = false) {
+  const g = getGeo();
+  if (!force && g && Date.now() - g.ts < 20 * 60 * 1000) return g;
+  STATUS?.('Leyendo tu ubicación…');
+  const c = await getPosition();
+  const lat = +c.latitude.toFixed(3), lon = +c.longitude.toFixed(3);
+  const same = g && Math.abs(g.lat - lat) < 0.004 && Math.abs(g.lon - lon) < 0.004 && g.comuna;
+  const place = same ? g : await reverseGeo(lat, lon);
+  const ng = { comuna: place.comuna, barrio: place.barrio, city: place.city, state: place.state, country: place.country, cc: place.cc, lat, lon, ts: Date.now() };
+  lsSet(GEO_STORE, JSON.stringify(ng));
+  return ng;
+}
+/* Pedidos de lugares cercanos (restaurantes, veterinarias, farmacias…). */
+const NEAR = /(cerca|cercan|por aqui|por aca|mi casa|mi barrio|mi comuna|a pie|caminando|sucursal|tienda fisica|abierto ahora|restaurant|restoran|cafeteria|\bcafe\b|brunch|sushi|pizzeria|veterinari|peluqueria|barberia|farmacia|supermercado|panaderia|gimnasio|clinica|dentista|lavanderia|ferreteria|botilleria|donde (como|almuerzo|ceno|tomo))/;
 /* País para buscar: sale de "Dónde compras" (Chile por defecto). */
+const LOCAL_DOMAINS = {
+  cl: ['falabella.com', 'mercadolibre.cl', 'ripley.cl', 'paris.cl', 'lider.cl', 'jumbo.cl', 'sodimac.cl', 'hites.com', 'lapolar.cl', 'abcdin.cl', 'pcfactory.cl', 'preunic.cl', 'cruzverde.cl', 'salcobrand.cl', 'dbs.cl', 'perfumeriasunidas.cl', 'silkperfumes.cl', 'eliteperfumes.cl', 'superzoo.cl', 'puntomascotas.cl', 'tusmascotas.cl', 'santaisabel.cl', 'tottus.cl', 'unimarc.cl', 'easy.cl', 'linio.cl'],
+  mx: ['mercadolibre.com.mx', 'amazon.com.mx', 'liverpool.com.mx', 'walmart.com.mx', 'sephora.com.mx', 'palaciodehierro.com', 'coppel.com', 'sanborns.com.mx'],
+  ar: ['mercadolibre.com.ar', 'fravega.com', 'garbarino.com'],
+  es: ['amazon.es', 'elcorteingles.es', 'druni.es', 'primor.eu'],
+};
+/* ¿La página es de una tienda del país del usuario? (dominio .cl, sección de Chile de una tienda global, o tienda conocida) */
+function isLocalUrl(u, c = shopCountry()) {
+  if (c.code === 'us') return true;
+  let h = '', path = '';
+  try { const x = new URL(u); h = x.hostname.replace(/^www\./, ''); path = x.pathname.toLowerCase(); } catch { return false; }
+  if (h === 'falabella.com') return c.code !== 'cl' || /falabella-cl/.test(path);
+  const tld = { cl: '.cl', mx: '.mx', ar: '.ar', es: '.es' }[c.code];
+  if (tld && (h.endsWith(tld) || h.includes(tld + '.'))) return true;
+  if ((LOCAL_DOMAINS[c.code] || []).some((d) => h === d || h.endsWith('.' + d))) return true;
+  return new RegExp(`/(${c.code}|es-${c.code}|${c.code}-es)(/|$)`).test(path);
+}
 function shopCountry() {
+  const g = geoOn() ? getGeo() : null;
+  if (g?.cc === 'cl') return { tav: 'chile', name: 'Chile', cur: 'CLP', gl: 'cl', code: 'cl' };
   const w = norm(shopWhere());
   if (/(estados unidos|usa|eeuu|ee\.uu|united states)/.test(w)) return { tav: 'united states', name: 'Estados Unidos', cur: 'USD', gl: 'us', code: 'us' };
   if (/mexico/.test(w)) return { tav: 'mexico', name: 'México', cur: 'MXN', gl: 'mx', code: 'mx' };
@@ -840,13 +941,15 @@ function bestImage(list) {
   const best = urls.map((u) => [u, score(u)]).filter((e) => e[1] >= 0).sort((a, b) => b[1] - a[1])[0];
   return best ? best[0] : '';
 }
-async function tavilySearch(query, key = getTavily()) {
+async function tavilySearch(query, key = getTavily(), near = false) {
   const c = shopCountry();
-  const q = norm(query).includes(norm(c.name)) ? query : `${query} ${c.name}`;
+  let q = norm(query).includes(norm(c.name)) ? query : `${query} ${c.name}`;
+  if (near && !norm(q).includes(norm(homeComuna()))) q = `${query} ${homeComuna()} ${c.name}`;
   const body = { query: q.slice(0, 380), search_depth: 'basic', max_results: 8, include_answer: false, include_images: true, topic: 'general', country: c.tav };
-  const post = (b) => gfetch('https://api.tavily.com/search', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` }, body: JSON.stringify(b) }, 25000);
+  const post = (b) => gfetch('https://api.tavily.com/search', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` }, body: JSON.stringify(b) }, 25000, 'La búsqueda');
   let r = await post(body);
   if (r.status === 400) { delete body.country; r = await post(body); }
+  if (r.status >= 500) { await sleep(1500); r = await post(body); }
   if (!r.ok) {
     let msg = ''; try { const j = await r.json(); msg = j.detail?.error || j.error || j.message || ''; } catch {}
     const e = gErr(r.status === 401 ? 'La clave de Tavily no es válida. Revísala en Ajustes.'
@@ -856,18 +959,32 @@ async function tavilySearch(query, key = getTavily()) {
     e.status = r.status; e.raw = msg; throw e;
   }
   const j = await r.json();
-  const results = (j.results || []).filter((x) => x.url);
-  if (!results.length) throw gErr('No encontré resultados en internet para eso.', 'empty');
+  let results = (j.results || []).filter((x) => x.url);
+  if (c.code !== 'us' && !near) {
+    let local = results.filter((x) => isLocalUrl(x.url, c));
+    // Pocas tiendas locales: segunda búsqueda solo en tiendas de ese país.
+    if (local.length < 3 && LOCAL_DOMAINS[c.code]) {
+      STATUS?.(`Buscando en tiendas de ${c.name}…`);
+      const r2 = await post({ ...body, include_domains: LOCAL_DOMAINS[c.code], max_results: 10 });
+      if (r2.ok) {
+        const j2 = await r2.json();
+        for (const x of j2.results || []) if (x.url && isLocalUrl(x.url, c) && !local.some((y) => y.url === x.url)) local.push(x);
+      }
+    }
+    // Si es una pregunta general (clima, horarios) y no hay tiendas, se usan los resultados normales.
+    results = local.length ? local : (SHOP_HINT.test(norm(query)) ? [] : results);
+  }
+  if (!results.length) throw gErr(`No encontré tiendas en ${c.name} con eso. Prueba con otras palabras.`, 'empty');
   return {
     text: results.map((x, i) => `${i + 1}. ${x.title || domainOf(x.url)} — ${x.url}\n${String(x.content || '').replace(/\s+/g, ' ').slice(0, 450)}`).join('\n\n'),
     sources: results.map((x) => ({ title: domainOf(x.url), uri: x.url })).filter((x, i, a) => a.findIndex((y) => y.title === x.title) === i).slice(0, 8),
-    entry: '', query, engine: 'tavily',
+    entry: '', query, engine: 'tavily', near,
     images: Object.fromEntries(results.map((x) => [x.url, bestImage(x.images)]).filter((e) => e[1])),
     poolImages: (j.images || []).map((im) => (typeof im === 'string' ? im : im?.url)).filter(Boolean),
   };
 }
-async function webSearch(query, original) {
-  if (getTavily()) return tavilySearch(query);
+async function webSearch(query, original, near = false) {
+  if (getTavily()) return tavilySearch(query, getTavily(), near);
   const where = shopWhere();
   const body = {
     systemInstruction: { parts: [{ text: `Eres un investigador de compras y datos actuales. ${todayLine()} Busca en Google y entrega hallazgos concretos y verificables, en español.
@@ -909,7 +1026,7 @@ const ACTION_SCHEMA = {
   },
   required: ['op'],
 };
-const PRODUCT_SCHEMA = { type: 'OBJECT', properties: { name: { type: 'STRING' }, store: { type: 'STRING' }, price: { type: 'STRING' }, url: { type: 'STRING' }, note: { type: 'STRING' }, category: { type: 'STRING' } }, required: ['name', 'url'] };
+const PRODUCT_SCHEMA = { type: 'OBJECT', properties: { name: { type: 'STRING' }, address: { type: 'STRING' }, store: { type: 'STRING' }, price: { type: 'STRING' }, url: { type: 'STRING' }, note: { type: 'STRING' }, category: { type: 'STRING' } }, required: ['name'] };
 const CMD_SCHEMA = { type: 'OBJECT', properties: { reply: { type: 'STRING' }, web: { type: 'STRING' }, products: { type: 'ARRAY', items: PRODUCT_SCHEMA }, actions: { type: 'ARRAY', items: ACTION_SCHEMA } }, required: ['reply', 'actions'] };
 
 function todayLine() {
@@ -918,7 +1035,7 @@ function todayLine() {
 }
 function whoLine() {
   const n = S.profile.name, e = spouse(), k = (S.profile.kids || '').trim();
-  return `El usuario se llama ${n || '(sin nombre)'}${e ? `; su esposa se llama ${e}` : ''}${k ? `; hijos: ${k}` : ''}. Vive en ${shopWhere()} (moneda ${shopCountry().cur}).`;
+  return `El usuario se llama ${n || '(sin nombre)'}${e ? `; su esposa se llama ${e}` : ''}${k ? `; hijos: ${k}` : ''}. ${geoOn() && getGeo()?.comuna ? `Está ahora en ${shopWhere()}` : `Vive en ${shopWhere()}`} (moneda ${shopCountry().cur}). Para despachos y compras, considera su comuna.`;
 }
 function memoryText() {
   const out = S.cats.map((c) => {
@@ -966,6 +1083,10 @@ ${web.text}
 FUENTES:
 ${web.sources.map((x) => `- ${x.title}: ${x.uri}`).join('\n') || '(sin fuentes)'}
 Los RESULTADOS son páginas encontradas (título — URL — extracto).
+${web.near ? `- PEDIDO DE LUGARES CERCANOS. El usuario está AHORA en ${shopWhere()}${getGeo() && geoOn() ? ` (aprox. ${getGeo().lat}, ${getGeo().lon})` : ''}. Recomienda SOLO lugares en ${homeComuna()} o comunas vecinas (a pocos minutos). Descarta lugares de otras comunas lejanas u otras ciudades (ej. Viña del Mar, Valparaíso, Concepción) aunque aparezcan en los resultados. Ordena del más cercano al más lejano.
+- Para cada lugar llena products: name (nombre del lugar), store (tipo de lugar, ej. "Veterinaria", "Café"), address (calle y número + comuna, solo si aparece en los resultados; si no, solo la comuna), price (rango de precio si aparece, si no deja vacío), url (URL de RESULTADOS), note (máx 8 palabras: horario, especialidad, valoración), category ("notas" o la lista que corresponda).
+  reply: 1 o 2 frases con tu recomendación principal y por qué. Deja actions vacío.
+` : ''}- SOLO tiendas que venden en ${shopCountry().name} (${shopWhere()}). Ignora cualquier resultado de otro país.
 - Si son productos o tiendas: llena products (máx 6), ordenados del mejor precio al más alto. name: marca + producto + tamaño, claro y corto. store: nombre de la tienda (ej. Falabella, Paris, Ripley, Mercado Libre). price: como aparece, en ${shopCountry().cur} con formato local (ej. $54.990); si no aparece el precio, "Ver precio". url: la URL EXACTA de RESULTADOS (nunca inventes). note: máx 8 palabras útiles (oferta, despacho, tamaño). category: la lista donde conviene guardarlo (id existente, o nombre de lista nueva como "Mascotas").
   En ese caso reply es SOLO 1 o 2 frases: cuál conviene y por qué. No repitas los productos en reply, no pongas links en reply y deja actions vacío (el usuario guarda cada producto con un botón).
 - Si no son productos (clima, horarios, lugares, datos): deja products vacío y responde en reply breve y claro.
@@ -1002,21 +1123,47 @@ function cleanProducts(list, web) {
     let url = String(p?.url || '').trim();
     if (!urls.has(url)) url = byDomain(url) || '';
     const img = (web.images || {})[url] || Object.entries(web.images || {}).find(([u]) => domainOf(u) === domainOf(url))?.[1] || '';
-    return { img, name: String(p?.name || '').trim().slice(0, 120), store: String(p?.store || '').trim().slice(0, 40) || (url ? domainOf(url) : ''), price: String(p?.price || '').trim().slice(0, 30), url, note: String(p?.note || '').trim().slice(0, 80), category: String(p?.category || '').trim().slice(0, 40) };
-  }).filter((p) => p.name && p.url).slice(0, 6);
+    return { img, address: String(p?.address || '').trim().slice(0, 120), name: String(p?.name || '').trim().slice(0, 120), store: String(p?.store || '').trim().slice(0, 40) || (url ? domainOf(url) : ''), price: String(p?.price || '').trim().slice(0, 30), url, note: String(p?.note || '').trim().slice(0, 80), category: String(p?.category || '').trim().slice(0, 40) };
+  }).filter((p) => p.name && (p.url || p.address) && (web.near || isLocalUrl(p.url))).slice(0, 6);
 }
 async function aiCommand(text, img, history = [], onStatus) {
   const parts = [];
   if (img) parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
   parts.push({ text: text || 'Extrae la información importante de esta imagen y guárdala.' });
-  let r = await gemini({ system: commandSystem(), parts, history, schema: CMD_SCHEMA });
+  STATUS = onStatus || null;
+  try { return await aiCommand0(text, img, history, onStatus, parts); } finally { STATUS = null; }
+}
+const QUERY_SCHEMA = { type: 'OBJECT', properties: { query: { type: 'STRING' } }, required: ['query'] };
+/* Pedidos claramente de internet: un modelo liviano arma la búsqueda (más rápido y no gasta el cupo del modelo principal). */
+async function makeQuery(text, history, near = false) {
+  await ensureModels();
+  const c = shopCountry();
+  const nearTxt = near ? ` Es un pedido de LUGARES CERCANOS: el usuario está ahora en ${shopWhere()}. La búsqueda debe incluir la comuna "${homeComuna()}" (ej. "veterinaria 24 horas ${homeComuna()} Santiago"). No incluyas otras ciudades.` : '';
+  const sys = `${nearTxt}Convierte la petición del usuario en UNA búsqueda web corta y precisa (máx 10 palabras) para encontrar productos o información en tiendas de ${c.name} (${shopWhere()}), con precios en ${c.cur}. Usa la memoria para afinar marca, tamaño o preferencias (ej. la comida que come su mascota, los perfumes que le gustan a ${spouse() || 'su esposa'}). Incluye "${c.name}". Responde JSON {"query": "..."}.
+MEMORIA:
+${memoryText().slice(0, 6000)}`;
+  try {
+    const r = await gemini({ system: sys, parts: [{ text }], history: history.slice(-4), schema: QUERY_SCHEMA, prefer: liteModel(), ms: 20000 });
+    return String(r.query || '').trim().slice(0, 200);
+  } catch (e) { if (e.code === 'key') throw e; return ''; }
+}
+async function aiCommand0(text, img, history, onStatus, parts) {
+  let r = null, q = '';
+  const nt = norm(text || '');
+  const near = webOn() && !img && NEAR.test(nt) && /(cerca|recomien|sugier|busca|donde|algun|quiero (ir|comer|tomar)|abiert|mejor|bueno|rico)/.test(nt);
+  const wantsWeb = webOn() && !img && (WEB_STRONG.test(nt) || near);
+  if (geoOn() && (wantsWeb || near)) { try { await refreshGeo(); } catch (e) { if (near) onStatus?.('Sin ubicación actual: uso la última conocida'); } }
+  if (wantsWeb) { onStatus?.(near ? `Buscando cerca de ti en ${homeComuna()}…` : 'Preparando la búsqueda…'); q = await makeQuery(text, history, near) || (text || '').slice(0, 300); }
+  else {
+    r = await gemini({ system: commandSystem(), parts, history, schema: CMD_SCHEMA });
+    q = String(r.web || '').trim();
+  }
   let web = null;
-  let q = String(r.web || '').trim();
   // Si la petición claramente pide internet, o Gemini dice que "no tiene acceso", busca de todos modos.
-  if (!q && webOn() && (WEB_HINT.test(norm(text || '')) || NO_WEB_REPLY.test(norm(r.reply || '')))) q = (text || '').slice(0, 300);
+  if (!q && webOn() && r && NO_WEB_REPLY.test(norm(r.reply || ''))) q = (text || '').slice(0, 300);
   if (q && webOn()) {
     onStatus?.('Buscando en internet…');
-    try { web = await webSearch(q, text || ''); }
+    try { web = await webSearch(q, text || '', near); }
     catch (e) {
       const links = searchLinks(q, text || '');
       if (getTavily()) return { reply: `No pude buscar en internet: ${e.message}\n\nTe dejo la búsqueda lista:`, actions: [], links };
@@ -1025,8 +1172,8 @@ async function aiCommand(text, img, history = [], onStatus) {
       }
       return { reply: 'No pude buscar en internet (' + e.message + '). Te dejo la búsqueda lista:', actions: [], links };
     }
-    onStatus?.('Armando la respuesta…');
-    r = await gemini({ system: commandSystem(web), parts, history, schema: CMD_SCHEMA });
+    onStatus?.(near ? 'Eligiendo los más cercanos…' : 'Comparando precios…');
+    r = await gemini({ system: commandSystem(web), parts, history, schema: CMD_SCHEMA, ms: 45000 });
   }
   const products = web ? cleanProducts(r.products, web) : [];
   return { reply: String(r.reply || ''), actions: products.length ? [] : cleanActions(r.actions), sources: web?.sources || [], entry: web?.entry || '', links: [], products };
@@ -1208,7 +1355,7 @@ const SUGGEST = () => [
   `¿Qué le falta a ${kid() || 'mi hija'} para el colegio?`,
   'Resumen de mi viaje a Puerto Vallarta',
   'Marca como comprado el protector solar',
-  ...(webOn() ? [`Búscame perfumes para ${spouse() || 'mi esposa'} al mejor precio y guárdalos`, 'Arma mi lista de comida para mis mascotas con links'] : []),
+  ...(webOn() ? [`Búscame perfumes para ${spouse() || 'mi esposa'} al mejor precio y guárdalos`, 'Arma mi lista de comida para mis mascotas con links', 'Recomiéndame una veterinaria cerca de mí', 'Un café rico cerca de aquí'] : []),
 ];
 function linkify(html) {
   // [texto](url) y URLs sueltas → links que abren en Safari
@@ -1220,24 +1367,27 @@ function botMsg(r, extra = {}) {
   return { role: 'bot', text: r.reply, actions: r.actions, sources: r.sources, entry: r.entry, links: r.links, products: r.products, dest: findCat(dest)?.id || (dest ? 'new:' + dest : 'notas'), ...extra };
 }
 function destName(d) { return d.startsWith('new:') ? d.slice(4) : catName(d); }
+const mapsUrl = (p) => `https://maps.apple.com/?daddr=${encodeURIComponent(`${p.name}, ${p.address}${/santiago|chile/i.test(p.address) ? '' : ', Santiago, Chile'}`)}&dirflg=d`;
 function productsHtml(m, i) {
   if (!m.products?.length) return '';
   const opts = S.cats.map((c) => `<option value="${c.id}" ${c.id === m.dest ? 'selected' : ''}>${esc(c.name)}</option>`).join('') +
     (m.dest.startsWith('new:') ? `<option value="${esc(m.dest)}" selected>+ Lista nueva: ${esc(m.dest.slice(4))}</option>` : '');
   const pending = m.products.filter((p) => !p.saved).length;
   return `<div class="pcards ${m.products.length === 1 ? 'one' : ''}">${m.products.map((p, j) => `<div class="pcard ${j === 0 ? 'best' : ''}">
-      <a class="pc-img" href="${esc(p.url)}" target="_blank" rel="noopener" aria-label="Ver ${esc(p.name)}">
+      <a class="pc-img" href="${esc(p.url || mapsUrl(p))}" target="_blank" rel="noopener" aria-label="Ver ${esc(p.name)}">
         ${p.img ? `<img src="${esc(p.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.classList.add('noimg');this.remove()">` : ''}
-        <span class="pc-ph">${ic(/mascot|perr|gat|croquet/.test(norm(p.name + ' ' + p.category)) ? 'paw' : 'bag')}</span>
-        ${j === 0 && /\d/.test(p.price) ? '<span class="pc-badge">Mejor precio</span>' : ''}
+        <span class="pc-ph">${ic(p.address ? 'pin' : /mascot|perr|gat|croquet/.test(norm(p.name + ' ' + p.category)) ? 'paw' : 'bag')}</span>
+        ${j === 0 && p.address ? '<span class="pc-badge">Más cerca</span>' : j === 0 && /\d/.test(p.price) ? '<span class="pc-badge">Mejor precio</span>' : ''}
       </a>
       <div class="pc-body">
       <div class="pc-head"><span class="pc-store">${esc(p.store)}</span></div>
       <div class="pc-name">${esc(p.name)}</div>
-      <div class="pc-price">${esc(p.price || 'Ver precio')}</div>
+      ${p.address ? `<div class="pc-addr">${ic('pin', 'xs')} ${esc(p.address)}</div>` : ''}
+      ${p.price || !p.address ? `<div class="pc-price">${esc(p.price || 'Ver precio')}</div>` : ''}
       ${p.note ? `<div class="pc-note">${esc(p.note)}</div>` : ''}
       <div class="pc-actions">
-        <a class="btn" href="${esc(p.url)}" target="_blank" rel="noopener">${ic('link', 'sm')} Ver</a>
+        ${p.address ? `<a class="btn" href="${esc(mapsUrl(p))}" target="_blank" rel="noopener">${ic('nav', 'sm')} Ruta</a>`
+          : `<a class="btn" href="${esc(p.url)}" target="_blank" rel="noopener">${ic('link', 'sm')} Ver</a>`}
         <button class="btn ${p.saved ? 'is-saved' : 'primary'}" data-act="saveProd" data-i="${i}" data-j="${j}" ${p.saved ? 'disabled' : ''}>${p.saved ? ic('check', 'sm') + ' Guardado' : ic('plus', 'sm') + ' Guardar'}</button>
       </div></div></div>`).join('')}</div>
     ${m.products.length > 1 ? `<p class="pc-hint">${ic('left', 'xs')} Desliza para ver las ${m.products.length} opciones ${ic('right', 'xs')}</p>` : ''}
@@ -1258,10 +1408,14 @@ function saveProducts(i, js) {
   let n = 0;
   for (const j of js) {
     const p = m.products[j]; if (!p || p.saved) continue;
-    if (addItem({ title: p.name, cat: catId, img: p.img, notes: [`${p.store}${p.price ? ' · ' + p.price : ''} · visto el ${today}`, p.note, p.url].filter(Boolean).join('\n') })) { p.saved = true; n++; }
+    if (addItem({ title: p.name, cat: catId, img: p.img, notes: [`${p.store}${p.price ? ' · ' + p.price : ''} · visto el ${today}`, p.address ? 'Dirección: ' + p.address : '', p.note, p.url, p.address ? mapsUrl(p) : ''].filter(Boolean).join('\n') })) { p.saved = true; n++; }
   }
   save(); render();
   toast(n > 1 ? `${n} guardados en ${catName(catId)}` : `Guardado en ${catName(catId)}`, { undo: true });
+}
+function relTime(ts) {
+  const m = Math.round((Date.now() - ts) / 60000);
+  return m < 1 ? 'recién' : m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`;
 }
 function sourcesHtml(m) {
   const lk = m.links?.length ? `<div class="links">${m.links.map((x) => `<a class="btn" href="${esc(x.uri)}" target="_blank" rel="noopener">${ic('globe')}<span>${esc(x.title)}</span></a>`).join('')}</div>` : '';
@@ -1347,11 +1501,22 @@ function viewSettings() {
       <button class="btn primary" style="flex:1" data-act="saveTavily">${getTavily() ? 'Guardar y probar' : 'Conectar Tavily'}</button>
       ${getTavily() ? '<button class="btn danger" data-act="removeTavily">Quitar</button>' : ''}
     </div>
-    <label class="lbl" for="whereIn">Dónde compras</label>
-    <input class="in" id="whereIn" placeholder="Ej. Santiago, Región Metropolitana, Chile" value="${esc(shopWhere())}">
-    <p class="help">Para buscar tiendas que envíen ahí y precios en tu moneda.</p>
-    <button class="btn" style="width:100%; margin-top:6px" data-act="saveWhere">Guardar ubicación</button>` : ''}
-  </div>` : ''}
+    ` : ''}
+  </div>
+  ${webOn() ? `<h2 class="sec">Ubicación</h2>
+  <div class="card">
+    <label style="display:flex; align-items:center; gap:12px; font-size:16px">
+      <span style="flex:1">Usar mi ubicación actual<span class="help" style="display:block; margin:2px 0 0">Para recomendarte lugares cerca de donde estás y despachos a tu comuna.</span></span>
+      <input type="checkbox" data-act="geoToggle" ${geoOn() ? 'checked' : ''} style="width:26px;height:26px;accent-color:var(--mint)">
+    </label>
+    ${geoOn() ? `<div class="geo-now">${ic('pin')}<div><b>${esc(getGeo()?.comuna || 'Sin leer todavía')}</b><div class="small muted">${esc(getGeo() ? [getGeo().barrio, getGeo().state].filter(Boolean).join(' · ') + ' · ' + relTime(getGeo().ts) : 'Toca "Actualizar ahora"')}</div></div></div>
+    <button class="btn" style="width:100%; margin-top:8px" data-act="geoNow">${ic('nav', 'sm')} Actualizar ahora</button>
+    <p class="help">Se actualiza sola cuando le pides algo cercano. Solo se envía la comuna y una posición aproximada (~100 m) a las búsquedas.</p>`
+    : `<label class="lbl" for="whereIn">Dónde vives</label>
+    <input class="in" id="whereIn" placeholder="Ej. Ñuñoa, Santiago, Chile" value="${esc(S.profile.shopWhere || '')}">
+    <p class="help">Escribe tu comuna. Se usa si no activas la ubicación actual.</p>
+    <button class="btn" style="width:100%; margin-top:6px" data-act="saveWhere">Guardar</button>`}
+  </div>` : ''}` : ''}
   <p class="help">La capa gratuita de Gemini puede usar lo que envías para mejorar sus productos. Si prefieres que no, activa la facturación en Google AI Studio (con este uso cuesta muy poco).</p>
 
   <h2 class="sec">Memoria</h2>
@@ -1363,7 +1528,7 @@ function viewSettings() {
     <button class="set-row danger" data-act="wipe">${ic('trash')}<span class="nm">Borrar toda la memoria</span></button>
   </div>
   <p class="help">Tu información vive solo en este teléfono. Haz un respaldo de vez en cuando y guárdalo en iCloud Drive (Archivos).</p>
-  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v4.0</p>`;
+  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v4.2</p>`;
 }
 
 function afterRender() {
@@ -1751,6 +1916,17 @@ const ACTIONS = {
   closeSheet: () => closeSheet(),
   toggleDone: () => { UI.showDone = !UI.showDone; render(); },
   webToggle: (el) => { lsSet(WEB_STORE, el.checked ? 'on' : 'off'); toast(el.checked ? 'Búsqueda en internet activada' : 'Búsqueda en internet desactivada'); render(); },
+  geoToggle: async (el) => {
+    if (!el.checked) { lsSet(GEO_ON, 'off'); render(); return toast('Ubicación actual desactivada'); }
+    try { lsSet(GEO_ON, 'on'); const g = await refreshGeo(true); toast(`Ubicación: ${g.comuna || 'leída'}`); }
+    catch (e) { lsSet(GEO_ON, 'off'); toast(e.message, { ms: 6000 }); }
+    render();
+  },
+  geoNow: async (el) => {
+    setBusy(el, true, 'Leyendo…');
+    try { const g = await refreshGeo(true); toast(`Ubicación: ${g.comuna || 'leída'}`); render(); }
+    catch (e) { toast(e.message, { ms: 6000 }); setBusy(el, false); }
+  },
   saveWhere: () => { snapshot(); S.profile.shopWhere = $('#whereIn').value.trim(); save(); toast('Ubicación guardada'); },
   clearDone: (el) => {
     snapshot();
@@ -1870,6 +2046,7 @@ $('#fileBackup').addEventListener('change', async (e) => {
 save();
 render();
 if (!S.onboarded) openOnboarding(0);
+if (geoOn() && navigator.permissions?.query) navigator.permissions.query({ name: 'geolocation' }).then((p) => { if (p.state === 'granted') refreshGeo().catch(() => {}); }).catch(() => {});
 if (navigator.storage?.persist) navigator.storage.persist().catch(() => {});
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
