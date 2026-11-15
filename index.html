@@ -531,6 +531,29 @@ label.lbl{display:block; font-size:12px; font-weight:600; color:var(--muted); ma
 .cat-grid .tile .ct{font-size:12.5px; line-height:1.3; opacity:.75}
 .fab{position:fixed; z-index:9; right:max(16px, calc(50% - 304px)); bottom:calc(var(--tabbar) + env(safe-area-inset-bottom) + 14px); display:inline-flex; align-items:center; gap:6px; height:52px; padding:0 20px 0 16px; border-radius:99px; background:var(--mint); color:var(--mint-ink); font-weight:600; font-size:16px; box-shadow:0 8px 24px rgba(0,0,0,.45)}
 .fab:active{transform:scale(.96)}
+/* Menú al mantener presionado */
+.icard,.row-item,.rem2,.lcard .lc-head,.lcard .lc-items{-webkit-touch-callout:none; -webkit-user-select:none; user-select:none}
+.icard img,.row-item img{-webkit-touch-callout:none; pointer-events:none}
+.lp-on{transform:scale(.97); transition:transform .15s}
+.mh{display:flex; align-items:center; gap:12px; margin:6px 44px 14px 2px}
+.mh-img{width:52px; height:52px; border-radius:12px; object-fit:contain; background:#fff; flex:none}
+.mh .im-ic{width:44px; height:44px; border-radius:12px}
+.mh-b{min-width:0; display:flex; flex-direction:column; gap:2px}
+.mh-b b{font-size:17px; font-weight:600; line-height:1.25}
+.mh-b small{font-size:13px; color:var(--muted)}
+.menu{background:var(--surface); border-radius:18px; overflow:hidden}
+.menu-row{display:flex; align-items:center; gap:12px; width:100%; padding:15px 16px; text-align:left; font-size:16px; color:var(--text); text-decoration:none; border-bottom:1px solid var(--line)}
+.menu-row:last-child{border-bottom:0}
+.menu-row .ic{color:var(--muted)}
+.menu-row.danger,.menu-row.danger .ic{color:var(--danger)}
+.menu-row:active{background:var(--surface2)}
+.mv-chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px}
+.mv-chip{padding:7px 12px; border-radius:99px; background:var(--surface2); color:var(--muted); font-size:14px}
+.mv-chip.on{background:var(--mint); color:var(--mint-ink); font-weight:600}
+.pc-head{display:flex; align-items:center; gap:6px; flex-wrap:wrap}
+.pc-trust{display:inline-flex; align-items:center; gap:3px; font-size:11px; font-weight:600; padding:2px 7px; border-radius:99px; background:rgba(138,247,149,.12); color:var(--mint)}
+.pc-trust.t0{background:rgba(169,138,255,.18); color:var(--violet-l)}
+.pc-trust.t3{background:var(--surface2); color:var(--muted)}
 </style>
 </head>
 <body>
@@ -750,6 +773,32 @@ const spouse = () => (S.profile.spouse || '').trim();
 const kid = () => (S.profile.kids || '').trim().split(/[\s,]/)[0] || '';
 const getItem = (id) => S.items.find((i) => i.id === id);
 
+/* ---------- Personas y proyecto automático ----------
+   Lo nuevo no cae en "General" si Nexo ya sabe dónde va: un proyecto existente que se menciona,
+   o la persona de la familia (en Ideas de regalo, un proyecto por persona: Maru, Samantha…). */
+const firstName = (s) => String(s || '').trim().split(/[\s,]/)[0] || '';
+function people() {
+  const p = S.profile || {}, out = [];
+  if (spouse()) out.push({ name: firstName(spouse()), re: new RegExp(`\\b(${norm(firstName(spouse()))}|mi esposa|mi senora|mi mujer|mi polola|mi novia|mi pareja)\\b`) });
+  const kids = String(p.kids || '').split(/\by\b|;|\n/).map((x) => firstName(x)).filter((x) => /^[A-ZÁÉÍÓÚÑ]/.test(x));
+  kids.forEach((k, i) => out.push({ name: k, re: new RegExp(`\\b(${norm(k)}${i === 0 ? '|mi hija|mi hijo|mi nina|mi nino|la nina|el nino' : ''})\\b`) }));
+  const pets = String(p.pets || '').split(/\by\b|;|\n/).map((x) => firstName(x)).filter((x) => /^[A-ZÁÉÍÓÚÑ]/.test(x) && x.length > 2);
+  pets.forEach((k) => out.push({ name: k, re: new RegExp(`\\b${norm(k)}\\b`) }));
+  if (p.name) out.push({ name: firstName(p.name), re: new RegExp(`\\b(${norm(firstName(p.name))}|para mi)\\b`) });
+  return out;
+}
+const isGiftCat = (catId) => catId === 'regalos' || /regalo|gift/.test(norm(catName(catId)));
+function autoGroup(catId, text) {
+  if (!catId || catId === 'perfil') return '';
+  const n = ` ${gkey(text)} `, nt = norm(text), projs = projList(catId);
+  const named = projs.find((g) => { const ws = gkey(g).split(' ').filter((w) => w.length > 2); return ws.length && ws.every((w) => n.includes(` ${w} `)); });
+  if (named) return named;
+  const who = people().find((x) => x.re.test(nt));
+  if (!who) return '';
+  const own = projs.find((g) => gkey(g) === gkey(who.name) || gkey(g).split(' ').includes(gkey(who.name)));
+  if (own) return own;
+  return isGiftCat(catId) || projs.some((g) => people().some((x) => gkey(x.name) === gkey(g))) ? who.name : '';
+}
 function addItem(o) {
   const it = {
     id: uid(), title: String(o.title || '').trim().slice(0, 200), notes: String(o.notes || '').trim(),
@@ -1486,7 +1535,7 @@ async function refreshGeo(force = false) {
 const NEAR = /(cerca|cercan|por aqui|por aca|mi casa|mi barrio|mi comuna|a pie|caminando|sucursal|tienda fisica|abierto ahora|restaurant|restoran|cafeteria|\bcafe\b|brunch|sushi|pizzeria|veterinari|peluqueria|barberia|farmacia|supermercado|panaderia|gimnasio|clinica|dentista|lavanderia|ferreteria|botilleria|donde (como|almuerzo|ceno|tomo))/;
 /* País para buscar: sale de "Dónde compras" (Chile por defecto). */
 const LOCAL_DOMAINS = {
-  cl: ['falabella.com', 'mercadolibre.cl', 'ripley.cl', 'paris.cl', 'lider.cl', 'jumbo.cl', 'sodimac.cl', 'hites.com', 'lapolar.cl', 'abcdin.cl', 'pcfactory.cl', 'preunic.cl', 'cruzverde.cl', 'salcobrand.cl', 'dbs.cl', 'perfumeriasunidas.cl', 'silkperfumes.cl', 'eliteperfumes.cl', 'superzoo.cl', 'puntomascotas.cl', 'tusmascotas.cl', 'santaisabel.cl', 'tottus.cl', 'unimarc.cl', 'easy.cl', 'linio.cl'],
+  cl: ['falabella.com', 'paris.cl', 'ripley.cl', 'lider.cl', 'farmaciasahumada.cl', 'spdigital.cl', 'maccosmetics.cl', 'mercadolibre.cl', 'ripley.cl', 'paris.cl', 'lider.cl', 'jumbo.cl', 'sodimac.cl', 'hites.com', 'lapolar.cl', 'abcdin.cl', 'pcfactory.cl', 'preunic.cl', 'cruzverde.cl', 'salcobrand.cl', 'dbs.cl', 'perfumeriasunidas.cl', 'silkperfumes.cl', 'eliteperfumes.cl', 'superzoo.cl', 'puntomascotas.cl', 'tusmascotas.cl', 'santaisabel.cl', 'tottus.cl', 'unimarc.cl', 'easy.cl', 'linio.cl'],
   mx: ['mercadolibre.com.mx', 'amazon.com.mx', 'liverpool.com.mx', 'walmart.com.mx', 'sephora.com.mx', 'palaciodehierro.com', 'coppel.com', 'sanborns.com.mx'],
   ar: ['mercadolibre.com.ar', 'fravega.com', 'garbarino.com'],
   es: ['amazon.es', 'elcorteingles.es', 'druni.es', 'primor.eu'],
@@ -1526,23 +1575,26 @@ function bestImage(list) {
   return best ? best[0] : '';
 }
 const SEARCH_CACHE = new Map();
-async function tavilySearch(query, key = getTavily(), near = false) {
-  const ck = `${query}|${near}|${shopWhere()}`, hit = SEARCH_CACHE.get(ck);
+async function tavilySearch(query, key = getTavily(), near = false, info = false) {
+  const ck = `${query}|${near}|${info}|${shopWhere()}`, hit = SEARCH_CACHE.get(ck);
   if (hit && Date.now() - hit.ts < 10 * 60e3) return hit.res;
-  const res = await tavilySearch0(query, key, near);
+  const res = await tavilySearch0(query, key, near, info);
   SEARCH_CACHE.set(ck, { ts: Date.now(), res });
   return res;
 }
-async function tavilySearch0(query, key, near) {
+async function tavilySearch0(query, key, near, info = false) {
   const c = shopCountry();
-  let q = norm(query).includes(norm(c.name)) ? query : `${query} ${c.name}`;
+  let q = info || norm(query).includes(norm(c.name)) ? query : `${query} ${c.name}`;
   if (near && !norm(q).includes(norm(homeComuna()))) q = `${query} ${homeComuna()} ${c.name}`;
-  const shop = !near && SHOP_HINT.test(norm(query));
-  const body = { query: q.slice(0, 380), search_depth: 'basic', max_results: 8, include_answer: shop ? false : 'basic', include_images: true, topic: 'general', country: c.tav };
+  const shop = !info && !near && SHOP_HINT.test(norm(query));
+  const body = { query: q.slice(0, 380), search_depth: info ? 'advanced' : 'basic', max_results: 8, include_answer: shop ? false : info ? 'advanced' : 'basic', include_images: !info, topic: 'general', ...(info ? {} : { country: c.tav }) };
   const post = (b) => gfetch('https://api.tavily.com/search', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` }, body: JSON.stringify(b) }, 15000, 'La búsqueda');
   // Compras: busca a la vez en todo internet y solo en tiendas del país (más rápido que una después de otra).
-  const localP = c.code !== 'us' && !near && LOCAL_DOMAINS[c.code]
+  const localP = !info && c.code !== 'us' && !near && LOCAL_DOMAINS[c.code]
     ? post({ ...body, include_answer: false, include_domains: LOCAL_DOMAINS[c.code], max_results: 10 }).then((x) => (x.ok ? x.json() : null)).catch(() => null) : null;
+  // Tienda oficial de la marca (ej. victoriassecret.cl): una búsqueda más, en paralelo.
+  const brand = !info && !near && brandWords(query).length ? brandWords(query).join(' ') : '';
+  const offP = brand ? post({ ...body, query: `${brand} tienda oficial ${c.name}`, include_answer: false, max_results: 6 }).then((x) => (x.ok ? x.json() : null)).catch(() => null) : null;
   let r = await post(body);
   if (r.status === 400) { delete body.country; r = await post(body); }
   if (r.status >= 500) { await sleep(1500); r = await post(body); }
@@ -1556,14 +1608,16 @@ async function tavilySearch0(query, key, near) {
   }
   const j = await r.json();
   let results = (j.results || []).filter((x) => x.url);
-  if (c.code !== 'us' && !near) {
+  if (!info && c.code !== 'us' && !near) {
     let local = results.filter((x) => isLocalUrl(x.url, c));
     const j2 = localP ? await localP : null;
     for (const x of j2?.results || []) if (x.url && isLocalUrl(x.url, c) && !local.some((y) => y.url === x.url)) local.push(x);
+    const j3 = offP ? await offP : null;
+    for (const x of j3?.results || []) if (x.url && storeTier(x.url, query) === 0 && isLocalUrl(x.url, c) && !local.some((y) => y.url === x.url)) local.unshift(x);
     // Si es una pregunta general (clima, horarios) y no hay tiendas, se usan los resultados normales.
     results = local.length ? local : (SHOP_HINT.test(norm(query)) ? [] : results);
   }
-  if (!results.length) throw gErr(`No encontré tiendas en ${c.name} con eso. Prueba con otras palabras.`, 'empty');
+  if (!results.length) throw gErr(info ? 'No encontré resultados en internet.' : `No encontré tiendas en ${c.name} con eso. Prueba con otras palabras.`, 'empty');
   return {
     text: results.map((x, i) => `${i + 1}. ${x.title || domainOf(x.url)} — ${x.url}\n${String(x.content || '').replace(/\s+/g, ' ').slice(0, 450)}`).join('\n\n'),
     sources: results.map((x) => ({ title: domainOf(x.url), uri: x.url })).filter((x, i, a) => a.findIndex((y) => y.title === x.title) === i).slice(0, 8),
@@ -1726,6 +1780,8 @@ Reglas:
   · "tarea": algo que hacer que no es una lista (date solo si hay plazo real).
   · "nota": un dato o información para recordar.
 - group: el PROYECTO dentro de la categoría (Nexo muestra cada categoría como proyectos y, dentro, los elementos por tipo), para mantenerla ordenada (ej. en Colegio: "Útiles Kinder 2027", "Textos Santillana", "Semana 16-20 nov"; en Viajes: "Vallarta diciembre"). Todo lo que venga del mismo correo, documento o tema va en el MISMO group. Reutiliza un group que ya exista en la memoria si es el mismo tema.
+- NUNCA dejes group vacío si hay un proyecto que calce. En Ideas de regalo (y categorías de personas) el group es la PERSONA: ${people().map((x) => x.name).join(', ') || 'el nombre de la persona'} (ej. "A Maru le encantó el perfume Delina" → category regalos, group "${people()[0]?.name || 'Maru'}"). "Mi esposa" es ${spouse() || 'su esposa'}; "mi hija/hijo" es ${kid() || 'su hijo/a'}.
+- Usa lo que la MEMORIA sabe de cada persona (gustos, marcas, tallas, colores) para completar notes y para sugerir ideas que le calcen.
 - Para agregar ítems a una lista que ya existe usa update con su id y checks (solo los nuevos); no crees otra lista.
 - Un correo o documento normalmente se convierte en: los eventos con fecha (cada uno un "evento") + las listas (cada una con sus checks), todo en el mismo group.
 - Lo que ${spouse() || 'su esposa'} menciona que le gustaría o le encanta va en "regalos". Maquillaje, perfumes o caprichos para comprarle van en "goodies".
@@ -1745,7 +1801,8 @@ ${web.near ? `- PEDIDO DE LUGARES CERCANOS. El usuario está AHORA en ${shopWher
 - Para cada lugar llena products: name (nombre del lugar), store (tipo de lugar, ej. "Veterinaria", "Café"), address (calle y número + comuna, solo si aparece en los resultados; si no, solo la comuna), price (rango de precio si aparece, si no deja vacío), url (URL de RESULTADOS), note (máx 8 palabras: horario, especialidad, valoración), category ("notas" o la lista que corresponda).
   reply: 1 o 2 frases con tu recomendación principal y por qué. Deja actions vacío.
 ` : ''}- SOLO tiendas que venden en ${shopCountry().name} (${shopWhere()}). Ignora cualquier resultado de otro país.
-- Si son productos o tiendas: llena products (máx 6), ordenados del mejor precio al más alto. name: marca + producto + tamaño, claro y corto. store: nombre de la tienda (ej. Falabella, Paris, Ripley, Mercado Libre). price: como aparece, en ${shopCountry().cur} con formato local (ej. $54.990); si no aparece el precio, "Ver precio". url: la URL EXACTA de RESULTADOS (nunca inventes). note: máx 8 palabras útiles (oferta, despacho, tamaño). category: la lista donde conviene guardarlo (id existente, o nombre de lista nueva como "Mascotas").
+- ELIGE TIENDAS CONFIABLES: primero la tienda oficial de la marca en ${shopCountry().name} (ej. victoriassecret.cl para Victoria's Secret), después grandes tiendas (Falabella, Paris, Ripley, Líder, Jumbo, Hites) y cadenas conocidas (Cruz Verde, Salcobrand, Ahumada, Preunic, DBS, Perfumerías Unidas, PC Factory), y Mercado Libre al final. Descarta tiendas pequeñas o desconocidas; úsalas solo si no hay ninguna confiable y dilo en note.
+- Si son productos o tiendas: llena products (máx 6), ordenados por confianza de la tienda y luego por precio. name: marca + producto + tamaño, claro y corto. store: nombre de la tienda (ej. Falabella, Paris, Ripley, Mercado Libre). price: como aparece, en ${shopCountry().cur} con formato local (ej. $54.990); si no aparece el precio, "Ver precio". url: la URL EXACTA de RESULTADOS (nunca inventes). note: máx 8 palabras útiles (oferta, despacho, tamaño). category: la lista donde conviene guardarlo (id existente, o nombre de lista nueva como "Mascotas").
   En ese caso reply es SOLO 1 o 2 frases: cuál conviene y por qué. No repitas los productos en reply, no pongas links en reply y deja actions vacío (el usuario guarda cada producto con un botón).
 - Si no son productos (clima, horarios, lugares, datos): deja products vacío y responde en reply breve y claro.
 - Deja web vacío.` : `- SÍ tienes acceso a internet con Google a través del campo web: nunca digas que no tienes acceso a internet o a información en tiempo real. Si para cumplir la petición necesitas información actual de internet (precios, ofertas, tiendas, links, disponibilidad, clima, horarios, noticias, datos de lugares) pon en web una búsqueda concreta (producto, marca, presentación, país) y deja actions vacío; reply: una frase corta. Antes de buscar usa la memoria para afinar (ej. marca de croquetas de la mascota, perfumes que le gustan). Si es solo sobre su memoria, deja web vacío.`}
@@ -1857,12 +1914,13 @@ function cleanActions(list) {
 function cleanProducts(list, web) {
   const urls = new Set((web.text.match(URL_RE) || []).concat(web.sources.map((x) => x.uri)));
   const byDomain = (u) => web.sources.find((x) => domainOf(x.uri) === domainOf(u))?.uri;
-  return (Array.isArray(list) ? list : []).map((p) => {
+  const out = (Array.isArray(list) ? list : []).map((p) => {
     let url = String(p?.url || '').trim();
     if (!urls.has(url)) url = byDomain(url) || '';
     const img = (web.images || {})[url] || Object.entries(web.images || {}).find(([u]) => domainOf(u) === domainOf(url))?.[1] || '';
     return { img, address: String(p?.address || '').trim().slice(0, 120), name: String(p?.name || '').trim().slice(0, 120), store: String(p?.store || '').trim().slice(0, 40) || (url ? domainOf(url) : ''), price: String(p?.price || '').trim().slice(0, 30), url, note: String(p?.note || '').trim().slice(0, 80), category: String(p?.category || '').trim().slice(0, 40) };
-  }).filter((p) => p.name && (p.url || p.address) && (web.near || isLocalUrl(p.url))).slice(0, 6);
+  }).filter((p) => p.name && (p.url || p.address) && (web.near || isLocalUrl(p.url))).slice(0, web.near ? 6 : 10);
+  return web.near ? out : curateProducts(out, web.query);
 }
 async function aiCommand(text, img, history = [], onStatus, opts = {}) {
   const parts = [];
@@ -1964,7 +2022,7 @@ async function fillPrices(products) {
   });
   return n || out.some((p, i) => p.img !== products[i].img) ? out : null;
 }
-const sortByPrice = (ps) => [...ps].sort((a, b) => (priceNum(a.price) ? 0 : 1) - (priceNum(b.price) ? 0 : 1) || priceNum(a.price) - priceNum(b.price));
+const sortByPrice = (ps) => [...ps].sort((a, b) => (a.tier ?? 0) - (b.tier ?? 0) || (priceNum(a.price) ? 0 : 1) - (priceNum(b.price) ? 0 : 1) || priceNum(a.price) - priceNum(b.price));
 function cleanTitle(t, store) {
   let x = String(t || '').split(/\s+[|–—]\s+|\s+-\s+(?=[^-]*$)/)[0].trim();
   if (norm(x) === norm(store) || x.length < 4) x = String(t || '').trim();
@@ -1977,6 +2035,43 @@ function guessCategory(text) {
   return hit ? hit[1] : cat('compras') ? 'compras' : 'notas';
 }
 const STREET_RE = /((?:Av(?:enida)?\.?|Calle|Pje\.?|Pasaje|Avda\.?)\s+[A-ZÁÉÍÓÚÑa-záéíóúñ.' ]{3,40}?\s#?\d{2,5})/;
+
+/* ---------- Tiendas confiables ----------
+   0 = tienda oficial de la marca, 1 = grandes retail, 2 = cadenas y tiendas especializadas conocidas,
+   3 = Mercado Libre, 9 = tienda poco conocida (solo si no hay nada mejor, y al final). */
+const TRUSTED = {
+  cl: {
+    1: ['falabella.com', 'ripley.cl', 'paris.cl', 'lider.cl', 'jumbo.cl', 'tottus.cl', 'santaisabel.cl', 'unimarc.cl', 'hites.com', 'lapolar.cl', 'abcdin.cl', 'sodimac.cl', 'easy.cl', 'falabella.cl'],
+    2: ['cruzverde.cl', 'salcobrand.cl', 'farmaciasahumada.cl', 'preunic.cl', 'dbs.cl', 'perfumeriasunidas.cl', 'silkperfumes.cl', 'eliteperfumes.cl', 'pcfactory.cl', 'spdigital.cl', 'superzoo.cl', 'puntomascotas.cl', 'tusmascotas.cl', 'maccosmetics.cl', 'mac.cl', 'sephora.cl', 'casaideas.cl', 'zara.com', 'hm.com', 'nike.cl', 'adidas.cl', 'apple.com', 'samsung.com', 'entel.cl', 'movistar.cl', 'contrapunto.cl', 'buscalibre.cl', 'antartica.cl', 'feriachilenadellibro.cl', 'lego.cl', 'juguetesmundo.cl', 'clubdeperros.cl', 'petco.cl', 'mundomascotas.cl', 'beautyshop.cl', 'perfumesfactory.cl'],
+    3: ['mercadolibre.cl'],
+  },
+  mx: { 1: ['liverpool.com.mx', 'palaciodehierro.com', 'walmart.com.mx', 'coppel.com', 'sanborns.com.mx', 'amazon.com.mx'], 2: ['sephora.com.mx'], 3: ['mercadolibre.com.mx'] },
+};
+const GENERIC_W = new Set(['perfume', 'perfumes', 'crema', 'cremas', 'precio', 'precios', 'mujer', 'hombre', 'nina', 'nino', 'set', 'ml', 'chile', 'body', 'mist', 'comprar', 'original', 'para', 'tienda', 'oficial', 'oferta', 'barato', 'mejor', 'regalo', 'colonia', 'eau', 'parfum', 'toilette', 'edp', 'edt', 'kit', 'pack', 'de', 'del', 'la', 'el', 'los', 'las', 'con', 'y', 'en', 'talla', 'color', 'nuevo', 'nueva', 'online', 'envio', 'gratis']);
+const brandWords = (q) => norm(q).replace(/[^a-z0-9 ]+/g, ' ').split(' ').filter((w) => w.length >= 3 && !GENERIC_W.has(w) && !/^\d/.test(w)).slice(0, 2);
+const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
+function storeTier(u, query = '') {
+  const h = hostOf(u); if (!h) return 9;
+  const tiers = TRUSTED[shopCountry().code] || {};
+  for (const t of [1, 2, 3]) if ((tiers[t] || []).some((d) => h === d || h.endsWith('.' + d))) return t;
+  // Tienda oficial: el dominio lleva el nombre de la marca buscada (victoriassecret.cl para "Victoria Secret").
+  const core = h.replace(/\.(com|net|org|co|store|shop)?\.?(cl|mx|ar|es|com)$/, '').replace(/[^a-z0-9]/g, '');
+  const bw = brandWords(query).map((w) => w.replace(/s$/, ''));
+  if (bw.length && bw.some((w) => w.length >= 4) && bw.every((w) => core.includes(w))) return 0;
+  return 9;
+}
+const TIER_LABEL = { 0: 'Tienda oficial', 1: 'Gran tienda', 2: 'Tienda conocida', 3: 'Mercado Libre' };
+/* Ordena por confianza y después por precio; deja máximo 2 por tienda y saca las poco conocidas si hay suficientes confiables. */
+function curateProducts(ps, query, max = 6) {
+  const brand = brandWords(query).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  const withT = ps.map((p) => { const tier = p.address ? 1 : storeTier(p.url, query); return { ...p, tier, store: tier === 0 && brand && !STORE_NAMES[hostOf(p.url)] ? brand : p.store }; });
+  const good = withT.filter((p) => p.tier < 9);
+  let list = good.length >= 2 ? good : withT;
+  list = list.sort((a, b) => a.tier - b.tier || (priceNum(a.price) ? 0 : 1) - (priceNum(b.price) ? 0 : 1) || priceNum(a.price) - priceNum(b.price));
+  const per = {};
+  list = list.filter((p) => { const h = hostOf(p.url); per[h] = (per[h] || 0) + 1; return per[h] <= 2; });
+  return list.slice(0, max).map((p) => (p.tier === 9 && !p.address ? { ...p, note: p.note || 'Tienda poco conocida: revisa antes de comprar' } : p));
+}
 function localProducts(web, text) {
   const c = shopCountry(), catg = guessCategory(text);
   const out = (web.results || []).map((x) => {
@@ -1988,22 +2083,64 @@ function localProducts(web, text) {
     const n = findPrice(x.title + ' ' + x.content);
     return { img: x.img || '', name: cleanTitle(x.title, store), store, address: '', price: n ? (c.code === 'cl' ? '$' + n.toLocaleString('es-CL') : '$' + n.toLocaleString()) : '', _n: n, url: x.url, note: '', category: catg };
   }).filter((p) => p.name && p.url);
-  if (!web.near) out.sort((a, b) => (a._n ? 0 : 1) - (b._n ? 0 : 1) || a._n - b._n);
-  return out.slice(0, 6).map(({ _n, ...p }) => p);
+  if (web.near) return out.slice(0, 6).map(({ _n, ...p }) => p);
+  return curateProducts(out.map(({ _n, ...p }) => p), web.query);
 }
 function localReply(web, products) {
   const c = shopCountry();
   if (!products.length) return web.answer || 'Esto encontré en internet:';
   if (web.near) return `Encontré **${products.length} opciones cerca de ${homeComuna()}**. Toca **Ruta** para llegar.`;
-  const p = products[0];
-  return p.price ? `**Más barato:** ${p.name} en **${p.store}** a **${p.price}**. ${products.length > 1 ? `Te dejo ${products.length} opciones en tiendas de ${c.name}.` : ''}`
-    : `Encontré **${products.length} opciones** en tiendas de ${c.name}. Toca **Ver** para revisar el precio.`;
+  const p = products[0], trusted = products.filter((x) => (x.tier ?? 9) < 9).length;
+  const where = trusted === products.length ? `en tiendas confiables de ${c.name}` : `en tiendas de ${c.name}`;
+  const lead = p.tier === 0 ? 'En la **tienda oficial**' : `En **${p.store}**`;
+  return p.price ? `${lead}: ${p.name} a **${p.price}**. ${products.length > 1 ? `Te dejo ${products.length} opciones ${where}.` : ''}`
+    : `Encontré **${products.length} opciones** ${where}. Toca **Ver** para revisar el precio.`;
+}
+
+/* Preguntas de información ("¿cuál es el perfume que usa Jimin?", "¿quién ganó…?"): se responde la pregunta,
+   no se buscan tiendas. Comprar es otra intención ("¿dónde lo compro?", "precio"). */
+const BUY_Q = /(compr|precio|cuesta|cuestan|cuanto vale|cuanto valen|barat|oferta|descuento|tienda|donde (lo |la |los |las )?(compro|venden|consigo|encuentro|puedo comprar)|link|enlace|cotiza|despacho|stock|disponib|cerca de)/;
+const INFO_Q = /^(y\s+)?(cual|cuales|que|quien|quienes|cuando|como|por ?que|cuanto|cuantos|cuantas|donde (queda|esta|nacio|vive)|sabes|me (dices|puedes decir|explicas)|dime|explica(me)?|cuentame|investiga|busca(me)? (info|informacion|quien|que|cual|cuando|como|por que))\b/;
+const isInfoQ = (nt) => { const t = String(nt || '').replace(/^[¿¡\s]+/, ''); return !BUY_Q.test(t) && (INFO_Q.test(t) || /\?\s*$/.test(t)); };
+const INFO_SCHEMA = { type: 'OBJECT', properties: { reply: { type: 'STRING' }, followups: { type: 'ARRAY', items: { type: 'STRING' } } }, required: ['reply'] };
+function infoSystem(web, err) {
+  const rules = `- Responde la pregunta directo, en español, en 1 a 4 frases. Primero la respuesta concreta (ej. el nombre exacto del perfume y la marca), después un dato útil.
+- Si hay varias versiones o no está confirmado, dilo ("según entrevistas…", "no hay confirmación oficial").
+- No hables de tiendas ni precios salvo que lo pregunte. No pongas links en reply (las fuentes se muestran aparte).
+- Si la pregunta tiene que ver con algo de su memoria (familia, gustos, categorías), conéctalo en una frase corta.
+- followups: hasta 3 respuestas cortas (máx 6 palabras) que el usuario podría tocar después, por ejemplo "Búscalo en tiendas de Chile", "Guárdalo en mis notas" u otra pregunta relacionada.
+Responde SOLO JSON: {"reply":"…","followups":["…"]}`;
+  return `Eres Nexo, el asistente personal del usuario. ${todayLine()} ${whoLine()}
+El usuario hizo una pregunta general (no está pidiendo comprar nada).
+${web ? `Buscaste en internet "${web.query}". RESULTADOS:
+${web.text}
+${web.answer ? `\nRESUMEN DEL BUSCADOR: ${web.answer}\n` : ''}
+- Usa SOLO lo que dicen los RESULTADOS; no inventes.` : `${err ? `No pudiste buscar en internet ahora (${err}). ` : ''}Responde con lo que sabes. Si es algo que pudo cambiar hace poco o no estás seguro, dilo en una frase.`}
+${rules}`;
+}
+async function infoFlow(q, text, parts, history, onStatus) {
+  let web = null, err = '';
+  if (webOn() && getTavily()) {
+    onStatus?.('Buscando en internet…');
+    try { web = await tavilySearch(String(q || text).slice(0, 300), getTavily(), false, true); } catch (e) { err = e.message; }
+  }
+  const base = { actions: [], products: [], links: [], entry: '', sources: web?.sources || [] };
+  if (!hasAI()) return web ? { ...base, reply: web.answer || 'Esto encontré en internet:' } : { ...base, reply: 'No pude buscar en internet' + (err ? ` (${err})` : '') + '. Te dejo la búsqueda lista:', links: searchLinks(q || text, text) };
+  onStatus?.(web ? 'Leyendo lo que encontré…' : 'Pensando…');
+  let r = null;
+  try { r = await gemini({ system: infoSystem(web, err), parts, history: history.slice(-4), schema: INFO_SCHEMA, ms: 25000, max: 3 }); }
+  catch (e) { if (!web?.answer) throw e; }
+  let reply = String(r?.reply || '').trim();
+  if (!reply || NO_WEB_REPLY.test(norm(reply))) reply = web?.answer || reply || 'No encontré una respuesta clara. ¿Me lo preguntas de otra forma?';
+  const fu = cleanFollow(r?.followups);
+  return { ...base, reply, followups: fu.length ? fu : ['Búscalo en tiendas de Chile', 'Guárdalo en mis notas'] };
 }
 async function searchFlow(q, text, near, parts, history, onStatus) {
   onStatus?.(near ? `Buscando cerca de ti en ${homeComuna()}…` : 'Buscando en internet…');
   let web;
   try { web = await webSearch(q, text || '', near); }
   catch (e) {
+    if (e.code === 'empty' && !near) return infoFlow(text || q, text, parts, history, onStatus);
     const links = searchLinks(q, text || '');
     if (getTavily()) return { reply: `No pude buscar en internet: ${e.message}\n\nTe dejo la búsqueda lista:`, actions: [], links, products: [], sources: [] };
     if (['quota', 'key', 'bad', 'model'].includes(e.code)) return { reply: 'Para buscar en internet, agrega tu clave gratis de **Tavily** en Ajustes → Internet.\n\nMientras, te dejo la búsqueda lista:', actions: [], links, products: [], sources: [] };
@@ -2089,7 +2226,9 @@ async function aiCommand0(text, img, history, onStatus, parts, opts = {}) {
   const near = webOn() && !img && NEAR.test(nt) && /(cerca|recomien|sugier|busca|donde|algun|quiero (ir|comer|tomar)|abiert|mejor|bueno|rico)/.test(nt);
   const wantsWeb = webOn() && !img && (WEB_STRONG.test(nt) || near);
   if (geoOn() && (wantsWeb || near)) { try { await refreshGeo(); } catch (e) { if (near) onStatus?.('Sin ubicación actual: uso la última conocida'); } }
+  const info = !near && !img && isInfoQ(nt);
   // Pedido claro de internet: se busca directo, sin gastar una pregunta de Gemini en armar la búsqueda.
+  if (wantsWeb && info) return infoFlow(text, text, parts, history, onStatus);
   if (wantsWeb) {
     // La IA (rápida) entiende "la comida de Mackenna y Luna" usando la memoria; sin IA se arma con reglas.
     let q = '';
@@ -2121,6 +2260,7 @@ async function aiCommand0(text, img, history, onStatus, parts, opts = {}) {
   }
   // Si Gemini dice que "no tiene acceso", busca de todos modos.
   if (!q && webOn() && NO_WEB_REPLY.test(norm(r.reply || ''))) q = (text || '').slice(0, 300);
+  if (q && info) return infoFlow(text, text, parts, history, onStatus);
   if (q && webOn()) return searchFlow(q, text, false, parts, history, onStatus);
   const actions = cleanActions(pickActions(r));
   return { reply: String(r.reply || '').trim() || (actions.length ? '' : 'No estoy seguro de qué necesitas. ¿Me lo dices con otras palabras?'), actions, followups: cleanFollow(r.followups), focus: cleanFocus(r.focus), sources: [], entry: '', links: [], products: [] };
@@ -2937,10 +3077,10 @@ function productsHtml(m, i) {
       <a class="pc-img" href="${esc(p.url || mapsUrl(p))}" target="_blank" rel="noopener" aria-label="Ver ${esc(p.name)}">
         ${p.img ? `<img src="${esc(p.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.classList.add('noimg');this.remove()">` : ''}
         <span class="pc-ph">${ic(p.address ? 'pin' : /mascot|perr|gat|croquet/.test(norm(p.name + ' ' + p.category)) ? 'paw' : 'bag')}</span>
-        ${j === 0 && p.address ? '<span class="pc-badge">Más cerca</span>' : j === 0 && /\d/.test(p.price) ? '<span class="pc-badge">Mejor precio</span>' : ''}
+        ${j === 0 && p.address ? '<span class="pc-badge">Más cerca</span>' : j === 0 && p.tier === 0 ? '<span class="pc-badge">Oficial</span>' : j === 0 && /\d/.test(p.price) ? '<span class="pc-badge">Recomendada</span>' : ''}
       </a>
       <div class="pc-body">
-      <div class="pc-head"><span class="pc-store">${esc(p.store)}</span></div>
+      <div class="pc-head"><span class="pc-store">${esc(p.store)}</span>${!p.address && TIER_LABEL[p.tier ?? storeTier(p.url, m.q || '')] ? `<span class="pc-trust t${p.tier ?? storeTier(p.url, m.q || '')}">${ic('check', 'xs')} ${TIER_LABEL[p.tier ?? storeTier(p.url, m.q || '')]}</span>` : ''}</div>
       <div class="pc-name">${esc(p.name)}</div>
       ${p.address ? `<div class="pc-addr">${ic('pin', 'xs')} ${esc(p.address)}</div>` : ''}
       ${p.price || !p.address ? `<div class="pc-price">${esc(p.price || 'Ver precio')}</div>` : ''}
@@ -2968,7 +3108,7 @@ function saveProducts(i, js) {
   let n = 0;
   for (const j of js) {
     const p = m.products[j]; if (!p || p.saved) continue;
-    if (addItem({ title: p.name, cat: catId, img: p.img, type: p.address ? 'nota' : 'producto', url: p.address ? '' : p.url, price: /\d/.test(p.price) ? p.price : '', store: p.address ? '' : p.store, notes: [`${p.store}${p.price ? ' · ' + p.price : ''} · visto el ${today}`, p.address ? 'Dirección: ' + p.address : '', p.note, p.url, p.address ? mapsUrl(p) : ''].filter(Boolean).join('\n') })) { p.saved = true; n++; }
+    if (addItem({ title: p.name, cat: catId, group: autoGroup(catId, `${p.name} ${m.q || ''} ${CHAT[i - 1]?.text || ''}`), img: p.img, type: p.address ? 'nota' : 'producto', url: p.address ? '' : p.url, price: /\d/.test(p.price) ? p.price : '', store: p.address ? '' : p.store, notes: [`${p.store}${p.price ? ' · ' + p.price : ''} · visto el ${today}`, p.address ? 'Dirección: ' + p.address : '', p.note, p.url, p.address ? mapsUrl(p) : ''].filter(Boolean).join('\n') })) { p.saved = true; n++; }
   }
   save(); render();
   toast(n > 1 ? `${n} guardados en ${catName(catId)}` : `Guardado en ${catName(catId)}`, { undo: true });
@@ -3087,7 +3227,7 @@ function viewSettings() {
     <button class="set-row danger" data-act="wipe">${ic('trash')}<span class="nm">Borrar toda la memoria</span></button>
   </div>
   <p class="help">Tu información vive solo en este teléfono. Haz un respaldo de vez en cuando y guárdalo en iCloud Drive (Archivos).</p>
-  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v7.5</p>`;
+  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v7.8</p>`;
 }
 
 function afterRender() {
@@ -3260,7 +3400,8 @@ function applyNow(actions) {
     if (a.op === 'add') {
       let catId = ensureCategory(a.category || 'notas');
       if (a.group && (!a.category || catId === 'notas')) catId = projHome(a.group) || catId;
-      const it = addItem({ title: a.title, cat: catId, date: a.date === 'none' ? '' : a.date, notes: a.notes, repeat: a.repeat, type: a.type, group: a.group, checks: a.checks, url: a.url, price: a.price, store: a.store });
+      const group = (a.group && gkey(a.group) !== 'general' ? a.group : '') || autoGroup(catId, `${a.title} ${a.notes || ''} ${FOCUS || ''}`);
+      const it = addItem({ title: a.title, cat: catId, date: a.date === 'none' ? '' : a.date, notes: a.notes, repeat: a.repeat, type: a.type, group, checks: a.checks, url: a.url, price: a.price, store: a.store });
       if (it) done.push({ kind: 'Guardado', cat: catId, group: it.group, title: it.title, date: it.date, n: it.checks?.length || 0, type: itemType(it) });
       continue;
     }
@@ -3679,6 +3820,11 @@ const ACTIONS = {
     toast(it.done ? 'Hecho' : 'Pendiente otra vez', { undo: true });
   },
   open: (el) => openItem(el.dataset.id),
+  menuOpen: (el) => openItem(el.dataset.id),
+  menuDone: (el) => { closeSheet(); ACTIONS.check(el); },
+  menuMove: (el) => moveSheet(el.dataset.id),
+  moveGo: (el) => moveGo(el.dataset.id),
+  mvPick: (el) => { $('#mvProj').value = el.dataset.g; $$('#mvChips .mv-chip').forEach((b) => b.classList.toggle('on', b === el)); },
   catView: (el) => { lsSet(CATVIEW_STORE, el.dataset.v); render(); },
   noteEditPage: (el) => openNote(el.dataset.id, true),
   noteView: (el) => openNote(el.dataset.id),
@@ -3835,7 +3981,7 @@ const ACTIONS = {
     toast(`${from} combinada con ${catName(to)} (${n} elemento${n === 1 ? '' : 's'})`, { undo: true });
   },
   reviewApply: () => applyReview(),
-  listAsk: (el) => askAbout(`En la categoría [categoría id:${UI.cat}] "${catName(UI.cat)}"${UI.proj ? `, proyecto "${UI.proj}" (usa group "${UI.proj}")` : ''}:`, $('#quickIn'), el),
+  listAsk: (el) => askAbout(`En la categoría [categoría id:${UI.cat}] "${catName(UI.cat)}"${UI.proj ? `, proyecto "${UI.proj}" (usa group "${UI.proj}")` : `. Pon cada elemento en el proyecto que calce (${[...projList(UI.cat), ...(isGiftCat(UI.cat) ? people().map((x) => x.name) : [])].join(', ') || 'crea uno si hace falta'})`}. Usa lo que sabes de mí y mi familia:`, $('#quickIn'), el),
   suggest: (el) => doAsk(el.textContent),
   retryAsk: (el) => { const i = +el.dataset.i, q = CHAT[i]?.retry; if (!q) return; CHAT.splice(i - 1, 2); doAsk(q); },
   chatReview: (el) => {
@@ -3896,11 +4042,14 @@ document.addEventListener('submit', (e) => {
     return;
   }
   if (f === 'catAsk') {
-    return askAbout(`En la categoría [categoría id:${UI.cat}] "${catName(UI.cat)}" (organiza en proyectos con group):`, $('#quickIn'), $('button', form));
+    const ps = projList(UI.cat);
+    return askAbout(`En la categoría [categoría id:${UI.cat}] "${catName(UI.cat)}". Pon cada elemento en un proyecto (group)${ps.length ? `: usa uno de estos si calza (${ps.join(', ')}) o crea uno nuevo` : ''}${isGiftCat(UI.cat) ? `; aquí el proyecto es la persona (${people().map((x) => x.name).join(', ')})` : ''}. Usa lo que sabes de mí y mi familia:`, $('#quickIn'), $('button', form));
   }
   if (f === 'quickAdd') {
     const v = $('#quickIn').value.trim(); if (!v) return;
-    addItem({ title: v, cat: UI.cat, group: UI.proj || '', type: 'tarea' }); save(); render();
+    const g = UI.proj || autoGroup(UI.cat, v);
+    addItem({ title: v, cat: UI.cat, group: g, type: 'tarea' }); save(); render();
+    if (g && !UI.proj) toast(`Guardado en ${catName(UI.cat)} › ${g}`, { undo: true });
     setTimeout(() => $('#quickIn')?.focus(), 0);
   } else if (f === 'ask') {
     const v = $('#askIn').value; $('#askIn').value = ''; doAsk(v);
@@ -3958,6 +4107,72 @@ function swpEnd() {
 }
 document.addEventListener('touchend', swpEnd, { passive: true });
 document.addEventListener('touchcancel', () => { const s = SWP; SWP = null; if (s) swpReset(s, swpEl(s)); }, { passive: true });
+
+/* ---------- Mantener presionado un elemento: menú rápido (abrir, tienda, hecho, mover, eliminar) ---------- */
+function itemMenu(id) {
+  const it = getItem(id); if (!it) return;
+  const t = itemType(it), url = itemUrl(it), c = cat(it.cat);
+  const checkable = it.cat !== 'perfil' && it.repeat !== 'yearly';
+  openSheet(`<div class="mh">
+      ${it.img ? `<img class="mh-img" src="${esc(it.img)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : `<span class="im-ic t-${t}">${ic(TYPE_SEC[t][1], 'sm')}</span>`}
+      <div class="mh-b"><b>${esc(it.title)}</b><small>${esc(c?.name || 'Notas')}${it.group ? ' › ' + esc(it.group) : ''}${it.price ? ' · ' + esc(it.price) : ''}</small></div>
+    </div>
+    <div class="menu">
+      <button class="menu-row" data-act="menuOpen" data-id="${it.id}">${ic('pencil', 'sm')}<span>Abrir y editar</span></button>
+      ${url ? `<a class="menu-row" href="${esc(url)}" target="_blank" rel="noopener">${ic('link', 'sm')}<span>Abrir en ${esc(it.store || domainOf(url))}</span></a>` : ''}
+      ${checkable ? `<button class="menu-row" data-act="menuDone" data-id="${it.id}">${ic('check', 'sm')}<span>${it.done ? 'Marcar como pendiente' : t === 'producto' ? 'Marcar como comprado' : 'Marcar como hecho'}</span></button>` : ''}
+      <button class="menu-row" data-act="menuMove" data-id="${it.id}">${ic('folder', 'sm')}<span>Mover a otra categoría o proyecto</span></button>
+      <button class="menu-row danger" data-act="delItem" data-id="${it.id}">${ic('trash', 'sm')}<span>Eliminar</span></button>
+    </div>`);
+}
+function moveSheet(id) {
+  const it = getItem(id); if (!it) return;
+  openSheet(`<h3>Mover</h3>
+    <p class="help" style="margin-top:2px">${esc(it.title)}</p>
+    <label class="lbl" for="mvCat">Categoría</label>
+    <select class="in" id="mvCat" onchange="mvProjs(this.value)">${catOptions(it.cat)}</select>
+    <label class="lbl" for="mvProj">Proyecto</label>
+    <input class="in" id="mvProj" value="${esc(it.group || '')}" placeholder="General" autocomplete="off">
+    <div class="mv-chips" id="mvChips"></div>
+    <div class="sheet-actions"><button class="btn" data-close>Cancelar</button><button class="btn primary" data-act="moveGo" data-id="${it.id}">Mover aquí</button></div>`);
+  mvProjs(it.cat, it.group || '');
+}
+function mvProjs(catId, cur) {
+  const box = $('#mvChips'); if (!box) return;
+  const ps = catId.startsWith('new:') ? [] : [...projList(catId), ...(isGiftCat(catId) ? people().map((x) => x.name).filter((n) => !projList(catId).some((g) => gkey(g) === gkey(n))) : [])];
+  if (cur === undefined) $('#mvProj').value = '';
+  box.innerHTML = ['', ...ps].map((g) => `<button type="button" class="mv-chip ${(cur ?? $('#mvProj').value) === g ? 'on' : ''}" data-act="mvPick" data-g="${esc(g)}">${esc(g || 'General')}</button>`).join('');
+}
+function moveGo(id) {
+  const it = getItem(id); if (!it) return;
+  snapshot();
+  const cv = $('#mvCat').value;
+  it.cat = cv.startsWith('new:') ? ensureCategory(cv.slice(4)) : cv;
+  const g = ensureProj(it.cat, $('#mvProj').value); if (g) it.group = g; else delete it.group;
+  it.updated = Date.now(); save(); closeSheet(); render();
+  toast(`Movido a ${catName(it.cat)}${g ? ' › ' + g : ''}`, { undo: true });
+}
+const LP_SEL = '.icard, .row-item, .rem2, .lcard';
+let LP = null, LP_FIRED = false;
+const lpId = (el) => el?.dataset.id || el?.querySelector('[data-id]')?.dataset.id;
+document.addEventListener('touchstart', (e) => {
+  const el = e.target.closest(LP_SEL);
+  if (!el || e.touches.length !== 1 || !$('#sheet').hidden || e.target.closest('input,textarea,form')) return;
+  const id = lpId(el); if (!id || !getItem(id)) return;
+  const t = e.touches[0];
+  LP = { x: t.clientX, y: t.clientY, timer: setTimeout(() => {
+    LP = null; LP_FIRED = true; navigator.vibrate?.(12);
+    el.classList.add('lp-on'); setTimeout(() => el.classList.remove('lp-on'), 220);
+    itemMenu(id);
+  }, 450) };
+}, { passive: true });
+document.addEventListener('touchmove', (e) => { if (LP && Math.hypot(e.touches[0].clientX - LP.x, e.touches[0].clientY - LP.y) > 10) { clearTimeout(LP.timer); LP = null; } }, { passive: true });
+const lpEnd = () => { if (LP) { clearTimeout(LP.timer); LP = null; } if (LP_FIRED) setTimeout(() => { LP_FIRED = false; }, 450); };
+document.addEventListener('touchend', lpEnd, { passive: true });
+document.addEventListener('touchcancel', lpEnd, { passive: true });
+// El toque que suelta el dedo no debe abrir el elemento ni cerrar el menú.
+document.addEventListener('click', (e) => { if (LP_FIRED) { e.preventDefault(); e.stopPropagation(); LP_FIRED = false; } }, true);
+document.addEventListener('contextmenu', (e) => { const el = e.target.closest(LP_SEL), id = lpId(el); if (id && getItem(id)) { e.preventDefault(); itemMenu(id); } });
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey && e.target.id === 'onbIn' && e.target.tagName === 'INPUT') { e.preventDefault(); onbAction('next'); }
   if (e.key === 'Escape' && !$('#sheet').hidden) closeSheet();
