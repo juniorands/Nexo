@@ -181,6 +181,14 @@ label.lbl{display:block; font-size:12px; font-weight:600; color:var(--muted); ma
 .ask-hero .nx{width:52px; height:52px; border-radius:16px}
 .ask-hero .nx svg{width:28px; height:28px}
 .chips{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
+.srcs{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px}
+.src{display:inline-flex; align-items:center; gap:5px; max-width:100%; padding:5px 10px; border-radius:99px; background:var(--surface2); color:var(--lav); font-size:13px; text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.src .ic{width:13px; height:13px; flex:none}
+.bubble.bot a.lnk, .help a.lnk{color:var(--mint); text-decoration:underline; text-underline-offset:2px}
+.gse{display:block; width:100%; height:64px; border:0; margin-top:8px; border-radius:12px; background:transparent; color-scheme:dark}
+.links{display:flex; flex-direction:column; gap:8px; margin-top:8px}
+.links .btn{justify-content:flex-start; font-weight:500; min-height:44px}
+.links .btn span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .chip{background:var(--surface); border:1px solid var(--line); border-radius:99px; padding:9px 14px; font-size:15px; text-align:left}
 .ask-bar{position:fixed; left:0; right:0; bottom:calc(var(--tabbar) + env(safe-area-inset-bottom)); background:color-mix(in srgb, var(--bg) 92%, transparent); -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px); padding:8px 16px; border-top:1px solid var(--line); z-index:5}
 .ask-bar .wrap{max-width:608px; margin:0 auto; display:flex; gap:8px; width:100%; align-items:flex-end}
@@ -354,6 +362,8 @@ const ICONS = {
   mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
   bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
   alert: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16h.01"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
   key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/>',
 };
 const ic = (name, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ICONS.folder}</svg>`;
@@ -381,7 +391,7 @@ function undo() {
 }
 function setBusy(btn, on, label) {
   if (!btn) return;
-  if (on) { btn.dataset.label = btn.innerHTML; btn.disabled = true; btn.innerHTML = `<span class="spin"></span>${label ? ' ' + esc(label) : ''}`; }
+  if (on) { if (!btn.disabled) btn.dataset.label = btn.innerHTML; btn.disabled = true; btn.innerHTML = `<span class="spin"></span>${label ? ' ' + esc(label) : ''}`; }
   else { btn.disabled = false; if (btn.dataset.label) btn.innerHTML = btn.dataset.label; }
 }
 
@@ -693,7 +703,7 @@ async function rawGenerate(model, key, body) {
   const j = await r.json();
   const txt = (j.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || '').join('');
   if (!txt) throw gErr('Gemini no respondió' + (j.promptFeedback?.blockReason ? ` (${j.promptFeedback.blockReason})` : '') + '.', 'empty');
-  return txt;
+  return { txt, cand: j.candidates[0] };
 }
 /* Usa el modelo elegido y, si falla por modelo/cupo/saturación, prueba los de respaldo y se queda con el que funcione. */
 async function generate(body, key = getKey()) {
@@ -702,9 +712,9 @@ async function generate(body, key = getKey()) {
   let lastErr;
   for (const model of chain) {
     try {
-      const txt = await rawGenerate(model, key, body);
+      const res = await rawGenerate(model, key, body);
       if (model !== first) lsSet(MODEL_STORE, model);
-      return txt;
+      return res;
     } catch (e) {
       lastErr = e;
       if (!['model', 'quota', 'busy', 'timeout'].includes(e.code)) break;
@@ -737,7 +747,34 @@ async function gemini({ system, parts, history = [], schema }) {
     generationConfig: { temperature: 0.4, responseMimeType: 'application/json' },
   };
   if (schema) body.generationConfig.responseSchema = schema;
-  return parseJSON(await generate(body));
+  return parseJSON((await generate(body)).txt);
+}
+
+/* ============================== Internet (Google Search vía Gemini) ============================== */
+const WEB_STORE = 'cerebro.web';
+const webOn = () => lsGet(WEB_STORE) !== 'off';
+const shopWhere = () => (S.profile.shopWhere || '').trim();
+const URL_RE = /https?:\/\/[^\s<>"'`)\]]+[^\s<>"'`)\].,;:!?]/g;
+const domainOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
+async function webSearch(query, original) {
+  const where = shopWhere();
+  const body = {
+    systemInstruction: { parts: [{ text: `Eres un investigador de compras y datos actuales. ${todayLine()} Busca en Google y entrega hallazgos concretos y verificables, en español.
+${where ? `El usuario vive en ${where}: prioriza tiendas que vendan o envíen ahí, con precios en su moneda.` : 'Si la petición no dice país, prioriza tiendas en línea que envíen a México y precios en MXN, e indica la moneda siempre.'}
+Para productos: una línea por opción con nombre exacto (marca, presentación/tamaño), tienda, precio y la URL directa de la página del producto. Ordena del mejor precio al más alto. Máximo 8 opciones. Si un precio no es seguro, dilo.
+Para otros datos (clima, horarios, info de lugares): resumen breve con fecha y fuente.
+No inventes URLs ni precios: solo los que veas en los resultados.` }] },
+    contents: [{ role: 'user', parts: [{ text: `Busca: ${query}\n\nPetición original del usuario: ${original}` }] }],
+    tools: [{ google_search: {} }],
+    generationConfig: { temperature: 0.2 },
+  };
+  const { txt, cand } = await generate(body);
+  const gm = cand?.groundingMetadata || {};
+  const seen = new Set();
+  const sources = (gm.groundingChunks || []).map((c) => c.web).filter((w) => w?.uri)
+    .filter((w) => { const k = w.title || w.uri; if (seen.has(k)) return false; seen.add(k); return true; })
+    .slice(0, 8).map((w) => ({ title: w.title || domainOf(w.uri), uri: w.uri }));
+  return { text: txt, sources, entry: gm.searchEntryPoint?.renderedContent || '', query };
 }
 
 /* Nexo entiende comandos: guardar, editar, mover, completar, borrar, organizar listas o responder */
@@ -751,7 +788,7 @@ const ACTION_SCHEMA = {
   },
   required: ['op'],
 };
-const CMD_SCHEMA = { type: 'OBJECT', properties: { reply: { type: 'STRING' }, actions: { type: 'ARRAY', items: ACTION_SCHEMA } }, required: ['reply', 'actions'] };
+const CMD_SCHEMA = { type: 'OBJECT', properties: { reply: { type: 'STRING' }, web: { type: 'STRING' }, actions: { type: 'ARRAY', items: ACTION_SCHEMA } }, required: ['reply', 'actions'] };
 
 function todayLine() {
   const d = new Date();
@@ -775,7 +812,7 @@ function memoryText() {
   });
   return out.join('\n\n');
 }
-function commandSystem() {
+function commandSystem(web = null) {
   return `Eres Nexo, el "segundo cerebro" personal del usuario. ${whoLine()} ${todayLine()}
 El usuario te escribe para: (a) guardar información nueva, (b) cambiar, mover, completar o borrar cosas que ya guardó, (c) organizar sus listas, o (d) preguntarte algo sobre su memoria. A veces comparte correos o capturas de pantalla.
 
@@ -801,6 +838,12 @@ Reglas:
 - Si el usuario dice "eso", "lo anterior", "el último", usa la conversación y la memoria para identificar el elemento. Si no estás seguro de a cuál se refiere, pregúntalo en reply y no propongas acciones.
 - Nunca inventes datos. title corto (máx 80 caracteres); notes con detalles (marca, talla, cantidad, precio, link, quién lo mencionó).
 - Iconos disponibles para listas: ${LIST_ICONS.join(', ')}. Colores: ${COLORS.join(', ')}.
+${!webOn() ? '- No tienes acceso a internet (el usuario lo desactivó en Ajustes). Si pide algo de internet, díselo y sugiere activarlo.' : web ? `
+INTERNET: ya buscaste "${web.query}". RESULTADOS:
+${web.text}
+FUENTES:
+${web.sources.map((x) => `- ${x.title}: ${x.uri}`).join('\n') || '(sin fuentes)'}
+Con estos resultados: responde en reply con lo más útil (mejor precio primero, tienda y precio). Si el usuario pidió guardar, armar una lista o "buscar y guardar", propone actions add en la lista que corresponda (crea la lista con add_list si no existe, ej. mascotas → icon paw). En notes pon tienda, precio con moneda, fecha de hoy y el link. Para el link usa la URL directa del producto si aparece en RESULTADOS; si no, usa la de FUENTES de esa tienda. Nunca inventes links ni precios. Deja web vacío.` : `- Tienes acceso a internet con Google. Si para cumplir la petición necesitas información actual de internet (precios, ofertas, tiendas, links, disponibilidad, clima, horarios, noticias, datos de lugares) pon en web una búsqueda concreta (producto, marca, presentación, país) y deja actions vacío; reply: una frase corta. Antes de buscar usa la memoria para afinar (ej. marca de croquetas de la mascota, perfumes que le gustan). Si es solo sobre su memoria, deja web vacío.`}
 
 MEMORIA DEL USUARIO:
 ${memoryText()}`;
@@ -825,12 +868,21 @@ function cleanActions(list) {
   }
   return out.slice(0, 40);
 }
-async function aiCommand(text, img, history = []) {
+async function aiCommand(text, img, history = [], onStatus) {
   const parts = [];
   if (img) parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
   parts.push({ text: text || 'Extrae la información importante de esta imagen y guárdala.' });
-  const r = await gemini({ system: commandSystem(), parts, history, schema: CMD_SCHEMA });
-  return { reply: String(r.reply || ''), actions: cleanActions(r.actions) };
+  let r = await gemini({ system: commandSystem(), parts, history, schema: CMD_SCHEMA });
+  let web = null;
+  const q = String(r.web || '').trim();
+  if (q && webOn()) {
+    onStatus?.('Buscando en internet…');
+    try { web = await webSearch(q, text || ''); }
+    catch (e) { return { reply: 'No pude buscar en internet: ' + e.message, actions: [] }; }
+    onStatus?.('Armando la respuesta…');
+    r = await gemini({ system: commandSystem(web), parts, history, schema: CMD_SCHEMA });
+  }
+  return { reply: String(r.reply || ''), actions: cleanActions(r.actions), sources: web?.sources || [], entry: web?.entry || '' };
 }
 
 /* sin IA */
@@ -883,7 +935,7 @@ function itemRow(it, showCat = true) {
   const sub = [
     showCat && c ? esc(c.name) : '',
     d ? `<span class="due ${dueClass(it)}">${it.repeat === 'yearly' ? ic('repeat', 'xs') + ' ' : ''}${relDate(d)}</span>` : '',
-    it.notes ? esc(it.notes.slice(0, 90)) : '',
+    it.notes ? (/https?:\/\//.test(it.notes) ? ic('link', 'xs') + ' ' : '') + esc(it.notes.replace(URL_RE, (u) => domainOf(u)).slice(0, 90)) : '',
   ].filter(Boolean).join(' · ');
   return `<div class="row-item ${it.done ? 'done' : ''}">
     ${checkable
@@ -1009,9 +1061,21 @@ const SUGGEST = () => [
   `¿Qué le falta a ${kid() || 'mi hija'} para el colegio?`,
   'Resumen de mi viaje a Puerto Vallarta',
   'Marca como comprado el protector solar',
+  ...(webOn() ? [`Búscame perfumes para ${spouse() || 'mi esposa'} al mejor precio y guárdalos`, 'Arma mi lista de comida para mis mascotas con links'] : []),
 ];
+function linkify(html) {
+  // [texto](url) y URLs sueltas → links que abren en Safari
+  html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (m, t, u) => `<a class="lnk" href="${u}" target="_blank" rel="noopener">${t}</a>`);
+  return html.replace(/(^|[^"'>=])(https?:\/\/[^\s<>"']+[^\s<>"'.,;:!?)])/g, (m, pre, u) => `${pre}<a class="lnk" href="${u}" target="_blank" rel="noopener">${esc(domainOf(u.replace(/&amp;/g, '&')))}</a>`);
+}
+function sourcesHtml(m) {
+  if (!m.sources?.length && !m.entry) return '';
+  const chips = (m.sources || []).map((x) => `<a class="src" href="${esc(x.uri)}" target="_blank" rel="noopener">${ic('globe')}<span>${esc(x.title)}</span></a>`).join('');
+  const gse = m.entry ? `<iframe class="gse" sandbox="allow-popups allow-popups-to-escape-sandbox" srcdoc="${esc('<meta name=color-scheme content=dark><base target=_blank><style>html,body{margin:0;background:transparent;color-scheme:dark}</style>' + m.entry)}"></iframe>` : '';
+  return `<div class="srcs">${chips}</div>${gse}`;
+}
 function mdLite(s) {
-  const lines = esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').split('\n');
+  const lines = linkify(esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')).split('\n');
   let html = '', inList = false;
   for (const l of lines) {
     const m = l.match(/^\s*[-*•]\s+(.*)/);
@@ -1024,7 +1088,7 @@ function mdLite(s) {
 function viewAsk() {
   const msgs = CHAT.map((m, i) => {
     if (m.role === 'me') return `<div class="bubble me">${esc(m.text)}</div>`;
-    const body = m.thinking ? '<span class="spin"></span> Pensando…' : m.html || mdLite(m.text);
+    const body = m.thinking ? `<span class="spin"></span> ${esc(m.status || 'Pensando…')}` : (m.html || mdLite(m.text)) + sourcesHtml(m);
     const act = m.actions?.length
       ? m.applied ? `<div class="applied">${ic('check', 'sm')} Cambios aplicados</div>`
         : `<button class="btn primary" data-act="chatReview" data-i="${i}">Revisar y aplicar ${m.actions.length} cambio${m.actions.length > 1 ? 's' : ''}</button>`
@@ -1035,7 +1099,7 @@ function viewAsk() {
   <header class="top"><h1>Pregúntale a Nexo</h1></header>
   <div class="chat" id="chat">
     ${CHAT.length ? msgs : `<div class="ask-hero"><span class="nx">${SPARK}</span>
-      <p class="muted" style="margin:0">${hasAI() ? 'Pregúntame, pídeme que guarde algo o que cambie lo que ya guardaste. Respondo solo con lo que tú me has contado.' : 'Sin Gemini puedo buscar en tu memoria. Conéctalo en Ajustes para respuestas inteligentes y ediciones.'}</p></div>
+      <p class="muted" style="margin:0">${hasAI() ? `Pregúntame, pídeme que guarde algo o que cambie lo que ya guardaste. ${webOn() ? 'También puedo buscar precios y links en internet.' : 'Respondo solo con lo que tú me has contado.'}` : 'Sin Gemini puedo buscar en tu memoria. Conéctalo en Ajustes para respuestas inteligentes y ediciones.'}</p></div>
       <div class="chips">${SUGGEST().map((s) => `<button class="chip" data-act="suggest">${esc(s)}</button>`).join('')}</div>`}
   </div>
   <form class="ask-bar" data-form="ask"><div class="wrap">
@@ -1072,6 +1136,17 @@ function viewSettings() {
       ${key ? '<button class="btn danger" data-act="removeKey">Quitar</button>' : ''}
     </div>
   </div>
+  ${key ? `<h2 class="sec">Internet</h2>
+  <div class="card">
+    <label style="display:flex; align-items:center; gap:12px; font-size:16px">
+      <span style="flex:1">Buscar en internet<span class="help" style="display:block; margin:2px 0 0">Nexo busca en Google cuando le pides precios, links, tiendas o datos actuales.</span></span>
+      <input type="checkbox" data-act="webToggle" ${webOn() ? 'checked' : ''} style="width:26px;height:26px;accent-color:var(--mint)">
+    </label>
+    ${webOn() ? `<label class="lbl" for="whereIn">Dónde compras</label>
+    <input class="in" id="whereIn" placeholder="Ej. Guadalajara, México" value="${esc(shopWhere())}">
+    <p class="help">Para buscar tiendas que envíen ahí y precios en tu moneda.</p>
+    <button class="btn" style="width:100%; margin-top:6px" data-act="saveWhere">Guardar ubicación</button>` : ''}
+  </div>` : ''}
   <p class="help">La capa gratuita de Gemini puede usar lo que envías para mejorar sus productos. Si prefieres que no, activa la facturación en Google AI Studio (con este uso cuesta muy poco).</p>
 
   <h2 class="sec">Memoria</h2>
@@ -1083,7 +1158,7 @@ function viewSettings() {
     <button class="set-row danger" data-act="wipe">${ic('trash')}<span class="nm">Borrar toda la memoria</span></button>
   </div>
   <p class="help">Tu información vive solo en este teléfono. Haz un respaldo de vez en cuando y guárdalo en iCloud Drive (Archivos).</p>
-  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v3.1</p>`;
+  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v3.2</p>`;
 }
 
 function afterRender() {
@@ -1233,6 +1308,7 @@ function openItem(id) {
       <label class="btn" style="font-weight:500; gap:8px"><input type="checkbox" id="edYearly" ${it.repeat === 'yearly' ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--mint)">Cada año</label></div>
     <label class="lbl" for="edNotes">Notas</label>
     <textarea class="in" id="edNotes" rows="4" placeholder="Marca, talla, precio, link, quién lo mencionó…">${esc(it.notes)}</textarea>
+    ${(() => { const us = [...new Set(it.notes.match(URL_RE) || [])]; return us.length ? `<div class="links">${us.map((u) => `<a class="btn" href="${esc(u)}" target="_blank" rel="noopener">${ic('link')}<span>Abrir ${esc(domainOf(u))}</span></a>`).join('')}</div>` : ''; })()}
     <p class="help">Guardado el ${new Date(it.created).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}${it.pkey ? ' · Viene de tus datos iniciales' : ''}</p>
     <div class="sheet-actions" style="flex-wrap:wrap">
       ${it.date ? `<button class="btn" style="flex-basis:100%" data-act="ics" data-id="${it.id}">${ic('calplus')} Añadir al Calendario</button>` : ''}
@@ -1291,7 +1367,7 @@ function saveCat(id) {
 /* ============================== acciones ============================== */
 async function runNexo(text, btn, img = null) {
   setBusy(btn, true);
-  try { return await aiCommand(text, img, chatHistory()); }
+  try { return await aiCommand(text, img, chatHistory(), (st) => setBusy(btn, true, st)); }
   catch (e) { toast(e.message, { ms: 4000 }); return null; }
   finally { setBusy(btn, false); }
 }
@@ -1312,7 +1388,7 @@ async function doCapture(btn) {
   if (!r) { if (text) openReview(localClassify(text), 'Sin IA en este momento: revisa antes de guardar.', clear); return; }
   if (r.actions.length) return openReview(r.actions, r.reply, clear);
   // sin cambios: fue una pregunta → la respuesta va al chat
-  CHAT.push({ role: 'me', text: text || '(imagen)' }, { role: 'bot', text: r.reply || 'No encontré nada que guardar.' });
+  CHAT.push({ role: 'me', text: text || '(imagen)' }, { role: 'bot', text: r.reply || 'No encontré nada que guardar.', sources: r.sources, entry: r.entry });
   pendingImg = null;
   go('ask');
 }
@@ -1331,8 +1407,8 @@ async function doAsk(q) {
   const thinking = { role: 'bot', thinking: true };
   CHAT.push(thinking); render();
   try {
-    const r = await aiCommand(q, null, history);
-    Object.assign(thinking, { thinking: false, text: r.reply || (r.actions.length ? 'Te propongo estos cambios.' : 'Listo.'), actions: r.actions });
+    const r = await aiCommand(q, null, history, (st) => { thinking.status = st; if (UI.tab === 'ask') render(); });
+    Object.assign(thinking, { thinking: false, text: r.reply || (r.actions.length ? 'Te propongo estos cambios.' : 'Listo.'), actions: r.actions, sources: r.sources, entry: r.entry });
   } catch (e) {
     Object.assign(thinking, { thinking: false, text: 'Hubo un problema: ' + e.message });
   }
@@ -1344,6 +1420,7 @@ async function askAbout(prefix, input, btn) {
   const r = await runNexo(`${prefix} ${t}`, btn);
   if (!r) return;
   if (r.actions.length) { closeSheet(); openReview(r.actions, r.reply, () => { input.value = ''; }); }
+  else if (r.sources?.length) { closeSheet(); input.value = ''; CHAT.push({ role: 'me', text: t }, { role: 'bot', text: r.reply, sources: r.sources, entry: r.entry }); go('ask'); }
   else toast(r.reply || 'No encontré cambios que hacer', { ms: 5000 });
 }
 
@@ -1416,6 +1493,8 @@ const ACTIONS = {
   cat: (el) => go('lists', { cat: el.dataset.id, showDone: false }),
   back: () => go('lists'),
   toggleDone: () => { UI.showDone = !UI.showDone; render(); },
+  webToggle: (el) => { lsSet(WEB_STORE, el.checked ? 'on' : 'off'); toast(el.checked ? 'Búsqueda en internet activada' : 'Búsqueda en internet desactivada'); render(); },
+  saveWhere: () => { snapshot(); S.profile.shopWhere = $('#whereIn').value.trim(); save(); toast('Ubicación guardada'); },
   clearDone: (el) => {
     snapshot();
     S.items = S.items.filter((i) => !(i.cat === el.dataset.id && i.done)); save(); render();
