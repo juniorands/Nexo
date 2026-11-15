@@ -1,6 +1,6 @@
 // Service worker: makes Nexo open without internet.
 // Bump VERSION whenever you upload a new index.html so phones pick up the update.
-const VERSION = 'nexo-v4.2';
+const VERSION = 'nexo-v4.3';
 const FONTS = 'nexo-fonts';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png', './avatar.png'];
 
@@ -31,7 +31,7 @@ self.addEventListener('fetch', (e) => {
 
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req)
+      fetch(new Request(req.url, { cache: 'no-store', credentials: 'same-origin' }))
         .then((res) => { const copy = res.clone(); caches.open(VERSION).then((c) => c.put('./index.html', copy)); return res; })
         .catch(() => caches.match('./index.html'))
     );
