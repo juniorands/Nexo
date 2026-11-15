@@ -1002,10 +1002,42 @@ async function connectKey(k) {
   } catch (e) { if (e.code !== 'quota') throw e; }
   lsSet(KEY_STORE, k);
 }
+/* Arregla lo típico que rompe el JSON de una IA: saltos de línea dentro del texto, comas sobrantes, respuesta cortada. */
+function repairJSON(s) {
+  let out = '', inStr = false, bs = false;
+  for (const ch of s) {
+    if (inStr) {
+      if (bs) { out += ch; bs = false; continue; }
+      if (ch === '\\') { out += ch; bs = true; continue; }
+      if (ch === '"') { inStr = false; out += ch; continue; }
+      if (ch === '\n') { out += '\\n'; continue; }
+      if (ch === '\r') continue;
+      if (ch === '\t') { out += '\\t'; continue; }
+      out += ch;
+    } else { if (ch === '"') inStr = true; out += ch; }
+  }
+  return out.replace(/,\s*([}\]])/g, '$1');
+}
+function closeJSON(s) {
+  const st = []; let inStr = false, bs = false;
+  for (const ch of s) {
+    if (inStr) { if (bs) bs = false; else if (ch === '\\') bs = true; else if (ch === '"') inStr = false; continue; }
+    if (ch === '"') inStr = true; else if (ch === '{') st.push('}'); else if (ch === '[') st.push(']'); else if (ch === '}' || ch === ']') st.pop();
+  }
+  return (s + (inStr ? '"' : '')).replace(/,\s*$/, '') + st.reverse().join('');
+}
 function parseJSON(txt) {
-  try { return JSON.parse(txt); } catch {}
-  const m = txt.match(/\{[\s\S]*\}/);
-  if (m) { try { return JSON.parse(m[0]); } catch {} }
+  const t = String(txt || '').replace(/^\s*```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+  const a = t.indexOf('{'), b = t.lastIndexOf('}');
+  const cands = [t, ...(a >= 0 && b > a ? [t.slice(a, b + 1)] : []), ...(a >= 0 ? [t.slice(a)] : [])];
+  for (const x of cands) for (const y of [x, repairJSON(x), closeJSON(repairJSON(x))]) {
+    try { const o = JSON.parse(y); if (o && typeof o === 'object' && !Array.isArray(o)) return o; } catch {}
+  }
+  // Si no hay JSON usable, igual se rescata la respuesta en texto (sin cambios en la memoria).
+  const rm = t.match(/"reply"\s*:\s*"((?:[^"\\]|\\.)*)/);
+  if (rm) return { reply: rm[1].replace(/\\n/g, '\n').replace(/\\"/g, '"'), actions: [] };
+  const plain = (a < 0 ? t : t.slice(0, a)).trim();
+  if (plain.length > 3) return { reply: plain, actions: [] };
   throw gErr('No entendí la respuesta de la IA. Intenta de nuevo.', 'empty');
 }
 const liteModel = () => rankModels(MODELS).find((m) => /lite/.test(m) && /gemini-([3-9]|\d\d)/.test(m)) || rankModels(MODELS).find((m) => /lite/.test(m)) || getModel();
@@ -1404,6 +1436,7 @@ Reglas:
 - Lo que ${spouse() || 'su esposa'} menciona que le gustaría o le encanta va en "regalos". Maquillaje, perfumes o caprichos para comprarle van en "goodies".
 - Datos sobre el usuario o su familia (tallas, gustos, alergias, colegio) van en "perfil".
 - date en formato YYYY-MM-DD solo si hay una fecha real o un plazo concreto (una lista sin plazo NO lleva date). Para compras con fecha límite (ej. útiles antes del inicio de clases) propone una fecha tentativa de compra 10 a 14 días antes y explica en notes la fecha límite real.
+- Si te piden un cálculo o estimación (cuánto rinde, cuánto gastar, cuántos días), hazlo con los datos de la memoria y supuestos razonables que dejes explícitos, y da el resultado claro en reply (en una sola línea por paso, sin tablas).
 - Si el usuario dice "eso", "lo anterior", "el último", usa la conversación y la memoria para identificar el elemento. Si no estás seguro de a cuál se refiere, pregúntalo en reply y no propongas acciones.
 - Nunca inventes datos. title corto (máx 80 caracteres); notes con detalles (marca, talla, cantidad, precio, link, quién lo mencionó).
 - Iconos disponibles para categorías: ${LIST_ICONS.join(', ')}. Colores: ${COLORS.join(', ')}.
@@ -2304,7 +2337,7 @@ function viewSettings() {
     <button class="set-row danger" data-act="wipe">${ic('trash')}<span class="nm">Borrar toda la memoria</span></button>
   </div>
   <p class="help">Tu información vive solo en este teléfono. Haz un respaldo de vez en cuando y guárdalo en iCloud Drive (Archivos).</p>
-  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v6.1</p>`;
+  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v6.2</p>`;
 }
 
 function afterRender() {
