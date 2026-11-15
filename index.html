@@ -125,6 +125,35 @@ label.lbl{display:block; font-size:12px; font-weight:600; color:var(--muted); ma
 /* rows */
 .row-item{display:flex; align-items:flex-start; gap:12px; padding:12px 14px 12px 0; border-bottom:1px solid var(--line)}
 .row-item:last-child{border-bottom:0}
+.ri-type{display:inline-flex; vertical-align:-1px; margin-right:6px; color:var(--violet-l)}
+.ri-price{color:var(--mint); font-weight:600}
+.lc-link{flex:none; align-self:center; display:inline-flex; align-items:center; gap:4px; font-size:13px; color:var(--mint); padding:6px 10px; border-radius:99px; background:var(--surface2); text-decoration:none; white-space:nowrap}
+.grp{margin-top:18px}
+.grp-h{display:flex; align-items:center; gap:8px; width:100%; padding:2px 2px 8px; font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:600}
+.grp-h .ct{margin-left:auto; font-weight:500}
+.grp .card.list + .lcard, .grp .lcard + .lcard{margin-top:10px}
+.lcard{background:var(--surface); border-radius:var(--radius); padding:14px; margin-top:10px}
+.lcard.done{opacity:.6}
+.lc-head{display:flex; align-items:center; gap:10px; width:100%; text-align:left}
+.lc-ic{flex:none; width:32px; height:32px; border-radius:10px; background:var(--surface2); color:var(--violet-l); display:flex; align-items:center; justify-content:center}
+.lc-title{flex:1; min-width:0; font-weight:600; font-size:17px}
+.lc-ct{font-size:13px; color:var(--muted)}
+.lc-bar{height:4px; border-radius:4px; background:var(--surface2); margin:12px 0 4px; overflow:hidden}
+.lc-bar i{display:block; height:100%; background:var(--mint)}
+.lc-items{list-style:none; margin:6px 0 0; padding:0}
+.lc-items li{display:flex; align-items:flex-start; gap:10px; padding:9px 0; border-bottom:1px solid var(--line)}
+.lc-items li:last-child{border-bottom:0}
+.lc-items li.done .lc-t{text-decoration:line-through; color:var(--muted)}
+.lc-items li.done .check{background:var(--mint); border-color:var(--mint)}
+.lc-t{flex:1; min-width:0; padding-top:2px}
+.check.sm{width:22px; height:22px}
+.lc-add{display:flex; gap:8px; margin-top:8px}
+.lc-add .in{flex:1; padding:10px 12px}
+.ck-row{display:grid; grid-template-columns:22px 1fr 40px; gap:6px 8px; align-items:center; padding-bottom:10px; margin-bottom:10px; border-bottom:1px solid var(--line)}
+.ck-row .in{padding:10px 12px}
+.ck-row .ck-url{grid-column:2 / 4; font-size:13px; padding:7px 10px; color:var(--muted)}
+.ck-row .btn.sq{width:40px; height:40px}
+.ck-row input[type=checkbox]{width:22px; height:22px; accent-color:var(--mint); flex:none}
 .check{flex:none; width:26px; height:26px; margin-top:1px; border-radius:99px; border:2px solid #4a4a52; color:var(--mint-ink); display:flex; align-items:center; justify-content:center}
 .check .ic{width:15px; height:15px; stroke-width:3}
 .row-item.done .check{background:var(--mint); border-color:var(--mint)}
@@ -324,7 +353,7 @@ label.lbl{display:block; font-size:12px; font-weight:600; color:var(--muted); ma
 
 <nav class="tabbar" aria-label="Secciones">
   <button class="tab" data-tab="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>Inicio</button>
-  <button class="tab" data-tab="lists"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1" fill="currentColor"/><circle cx="4.5" cy="12" r="1" fill="currentColor"/><circle cx="4.5" cy="18" r="1" fill="currentColor"/></svg>Listas</button>
+  <button class="tab" data-tab="lists"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1" fill="currentColor"/><circle cx="4.5" cy="12" r="1" fill="currentColor"/><circle cx="4.5" cy="18" r="1" fill="currentColor"/></svg>Categorías</button>
   <button class="tab" data-tab="ask"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C13.6 9.9 14.1 10.4 22 12C14.1 13.6 13.6 14.1 12 22C10.4 14.1 9.9 13.6 2 12C9.9 10.4 10.4 9.9 12 2Z"/></svg>Nexo</button>
   <button class="tab" data-tab="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Ajustes</button>
 </nav>
@@ -498,8 +527,35 @@ function addItem(o) {
     kind: o.kind || '', img: /^https:\/\//.test(o.img || '') ? o.img : undefined, done: false, created: Date.now(), updated: Date.now(), pkey: o.pkey || undefined,
   };
   if (!it.title) return null;
+  if (TYPES.includes(o.type)) it.type = o.type;
+  if (String(o.group || '').trim()) it.group = String(o.group).trim().slice(0, 60);
+  const ck = cleanChecks(o.checks); if (ck.length) { it.checks = ck; if (!it.type) it.type = 'lista'; }
+  if (/^https?:\/\//.test(o.url || '')) it.url = o.url;
+  if (o.price) it.price = String(o.price).slice(0, 30);
+  if (o.store) it.store = String(o.store).slice(0, 40);
   S.items.push(it); return it;
 }
+/* Tipos de elemento: cada uno se ve y se comporta distinto. */
+const TYPES = ['nota', 'tarea', 'evento', 'lista', 'compras', 'producto'];
+const TYPE_NAMES = { nota: 'Nota', tarea: 'Tarea', evento: 'Recordatorio con fecha', lista: 'Lista con checks', compras: 'Lista de compras', producto: 'Producto con link' };
+const TYPE_ALIAS = { checklist: 'lista', list: 'lista', todo: 'lista', shopping: 'compras', shopping_list: 'compras', compra: 'compras', lista_compras: 'compras', lista_de_compras: 'compras',
+  event: 'evento', reminder: 'evento', recordatorio: 'evento', fecha: 'evento', task: 'tarea', note: 'nota', dato: 'nota', info: 'nota', product: 'producto', item: 'producto' };
+const toType = (v) => { const t = norm(String(v || '')).replace(/[\s-]+/g, '_'); return TYPES.includes(t) ? t : TYPE_ALIAS[t] || ''; };
+const itemType = (it) => TYPES.includes(it.type) ? it.type : it.checks?.length ? 'lista' : it.date && it.cat !== 'perfil' ? 'evento' : 'tarea';
+const isListType = (t) => t === 'lista' || t === 'compras';
+function cleanChecks(list) {
+  const arr = Array.isArray(list) ? list : typeof list === 'string' && list.trim() ? list.split(/\n|;/) : [];
+  return arr.map((c) => {
+    if (typeof c === 'string') c = { t: c };
+    if (!c || typeof c !== 'object') return null;
+    const t = String(c.t ?? c.text ?? c.texto ?? c.name ?? c.nombre ?? c.item ?? c.title ?? c.titulo ?? c.producto ?? '').replace(/^\s*([-*•]|\d+[.)])\s*/, '').trim().slice(0, 140);
+    if (!t) return null;
+    const url = String(c.url ?? c.link ?? c.enlace ?? '');
+    return { id: uid(), t, qty: String(c.qty ?? c.cantidad ?? c.quantity ?? '').trim().slice(0, 20), url: /^https?:\/\//.test(url) ? url : '', price: String(c.price ?? c.precio ?? '').trim().slice(0, 30), done: !!(c.done ?? c.hecho) };
+  }).filter(Boolean).slice(0, 120);
+}
+const shopLink = (t) => `https://www.google.com/search?tbm=shop&gl=${shopCountry().gl}&q=${encodeURIComponent(t)}`;
+const itemUrl = (it) => it.url || (String(it.notes || '').match(/https?:\/\/[^\s<>"']+/) || [])[0] || '';
 function findCat(value) {
   if (!value) return null;
   if (cat(value)) return cat(value);
@@ -1259,10 +1315,12 @@ function whoLine() {
 function memoryText() {
   const out = S.cats.map((c) => {
     const its = S.items.filter((i) => i.cat === c.id);
-    const head = `## ${c.name} [lista id:${c.id}${c.system ? ', fija' : ''}]`;
+    const head = `## ${c.name} [categoría id:${c.id}${c.system ? ', fija' : ''}]`;
     if (!its.length) return head + '\n(vacía)';
     return head + '\n' + its.map((i) =>
-      `- [id:${i.id}] ${i.done ? '[hecho] ' : ''}${i.title}` +
+      `- [id:${i.id}] (${itemType(i)}${i.group ? ', grupo: ' + i.group : ''}) ${i.done ? '[hecho] ' : ''}${i.title}` +
+      (i.checks?.length ? ` — ítems: ${i.checks.map((c) => (c.done ? '[x] ' : '') + c.t).join('; ').slice(0, 600)}` : '') +
+      (i.price || i.url ? ` — ${[i.price, i.store, i.url].filter(Boolean).join(' · ')}` : '') +
       (i.date ? ` (fecha: ${i.date}${i.repeat === 'yearly' ? ', cada año' : ''})` : '') +
       (i.notes ? ` — ${i.notes.replace(/\s*\n\s*/g, ' / ')}` : '') +
       ` {guardado ${ymd(new Date(i.created))}}`
@@ -1272,30 +1330,39 @@ function memoryText() {
 }
 function commandSystem(web = null) {
   return `Eres Nexo, el "segundo cerebro" personal del usuario. ${whoLine()} ${todayLine()}
-El usuario te escribe para: (a) guardar información nueva, (b) cambiar, mover, completar o borrar cosas que ya guardó, (c) organizar sus listas, o (d) preguntarte algo sobre su memoria. A veces comparte correos o capturas de pantalla.
+El usuario te escribe para: (a) guardar información nueva, (b) cambiar, mover, completar o borrar cosas que ya guardó, (c) organizar sus categorías, o (d) preguntarte algo sobre su memoria. A veces comparte correos o capturas de pantalla.
 
 Tu estilo: directo, práctico y con energía de alguien que construye. Piensas como alguien que usa la IA para ganar tiempo y enfocarse en lo que importa: la familia, el trabajo creativo y avanzar. Nada de relleno; prioriza lo accionable. Si ves algo útil (una fecha que se acerca, un regalo pendiente, algo vencido), sugiérelo de forma proactiva.
 
 Responde con JSON:
 - reply: respuesta breve en español, cálida y práctica. Usa "- " para viñetas y **negritas** para lo clave. Si propones cambios, resume en una frase qué vas a hacer. Si es una pregunta, respóndela SOLO con base en la memoria (puedes razonar y recomendar, citando de dónde sale); si el dato no está, dilo y sugiere qué agregar.
 - actions: lista de cambios a proponer (vacía si solo es una pregunta). Operaciones:
-  · add: elemento nuevo → title, category, date, notes, repeat.
-  · update: editar un elemento existente → id (el [id:...] de la memoria) + SOLO los campos que cambian. Usa category para moverlo a otra lista. date "none" quita la fecha. notes reemplaza las notas completas (conserva lo anterior si sigue siendo útil). repeat "yearly" o "none".
+  · add: elemento nuevo → title, category, type, group, date, notes, repeat, checks, url, price, store.
+  · update: editar un elemento existente → id (el [id:...] de la memoria) + SOLO los campos que cambian. Usa category para moverlo a otra categoría y group para moverlo de grupo. checks en update AGREGA esos ítems a la lista existente. date "none" quita la fecha. notes reemplaza las notas completas (conserva lo anterior si sigue siendo útil). repeat "yearly" o "none".
   · done / undone: marcar como hecho o pendiente → id.
   · delete: borrar un elemento → id. Solo si el usuario lo pide claramente.
-  · add_list: lista nueva → name, icon, color.
-  · update_list: renombrar o cambiar icono/color de una lista → id de la lista + name/icon/color.
-  · delete_list: borrar una lista (sus elementos pasan a Notas) → id. Nunca borres listas fijas.
+  · add_list: CATEGORÍA nueva → name, icon, color.
+  · update_list: renombrar o cambiar icono/color de una categoría → id de la categoría + name/icon/color.
+  · delete_list: borrar una categoría (sus elementos pasan a Notas) → id. Nunca borres categorías fijas.
 
 Reglas:
-- category: id de una lista existente, o el nombre de una lista nueva (en ese caso agrega también un add_list con su icon y color).
-- Divide la información nueva en elementos individuales y útiles (ej. cada útil escolar o producto). Si son muchos, agrupa con sentido (máx ~25).
+- category: id de una categoría existente, o el nombre de una categoría nueva (en ese caso agrega también un add_list con su icon y color).
+- type: elige SIEMPRE según QUÉ ES, no según si tiene fecha:
+  · "lista": varias cosas para hacer, llevar o preparar (útiles, maleta, pendientes de un evento) o cuando el usuario dice "hazme/arma una lista". Es UN SOLO elemento con checks: [{"text":"Cuaderno college 100 hojas","qty":"2"}]. NUNCA crees un elemento por cada ítem de una lista.
+  · "compras": lista de cosas para comprar (supermercado, útiles para comprar, comida de mascotas). Igual que "lista"; cada check puede llevar "url" y "price" si los conoces (Nexo pone un botón para buscar en tiendas).
+  · "evento": algo que pasa en un día u hora concreto (reunión, salida, prueba, venta, vencimiento, cumpleaños). Lleva date; la hora va en notes.
+  · "producto": UN producto puntual para comprar o regalar, con url, price y store si se conocen.
+  · "tarea": algo que hacer que no es una lista (date solo si hay plazo real).
+  · "nota": un dato o información para recordar.
+- group: subtema dentro de la categoría para mantenerla ordenada (ej. en Colegio: "Útiles Kinder 2027", "Textos Santillana", "Semana 16-20 nov"; en Viajes: "Vallarta diciembre"). Todo lo que venga del mismo correo, documento o tema va en el MISMO group. Reutiliza un group que ya exista en la memoria si es el mismo tema.
+- Para agregar ítems a una lista que ya existe usa update con su id y checks (solo los nuevos); no crees otra lista.
+- Un correo o documento normalmente se convierte en: los eventos con fecha (cada uno un "evento") + las listas (cada una con sus checks), todo en el mismo group.
 - Lo que ${spouse() || 'su esposa'} menciona que le gustaría o le encanta va en "regalos". Maquillaje, perfumes o caprichos para comprarle van en "goodies".
 - Datos sobre el usuario o su familia (tallas, gustos, alergias, colegio) van en "perfil".
-- date en formato YYYY-MM-DD solo si hay una fecha real o límite. Para compras con fecha límite (ej. útiles antes del inicio de clases) propone una fecha tentativa de compra 10 a 14 días antes y explica en notes la fecha límite real.
+- date en formato YYYY-MM-DD solo si hay una fecha real o un plazo concreto (una lista sin plazo NO lleva date). Para compras con fecha límite (ej. útiles antes del inicio de clases) propone una fecha tentativa de compra 10 a 14 días antes y explica en notes la fecha límite real.
 - Si el usuario dice "eso", "lo anterior", "el último", usa la conversación y la memoria para identificar el elemento. Si no estás seguro de a cuál se refiere, pregúntalo en reply y no propongas acciones.
 - Nunca inventes datos. title corto (máx 80 caracteres); notes con detalles (marca, talla, cantidad, precio, link, quién lo mencionó).
-- Iconos disponibles para listas: ${LIST_ICONS.join(', ')}. Colores: ${COLORS.join(', ')}.
+- Iconos disponibles para categorías: ${LIST_ICONS.join(', ')}. Colores: ${COLORS.join(', ')}.
 ${!webOn() ? '- No tienes acceso a internet (el usuario lo desactivó en Ajustes). Si pide algo de internet, díselo y sugiere activarlo.' : web ? `
 INTERNET: ya buscaste "${web.query}". RESULTADOS:
 ${web.text}
@@ -1312,7 +1379,9 @@ ${web.near ? `- PEDIDO DE LUGARES CERCANOS. El usuario está AHORA en ${shopWher
 - Deja web vacío.` : `- SÍ tienes acceso a internet con Google a través del campo web: nunca digas que no tienes acceso a internet o a información en tiempo real. Si para cumplir la petición necesitas información actual de internet (precios, ofertas, tiendas, links, disponibilidad, clima, horarios, noticias, datos de lugares) pon en web una búsqueda concreta (producto, marca, presentación, país) y deja actions vacío; reply: una frase corta. Antes de buscar usa la memoria para afinar (ej. marca de croquetas de la mascota, perfumes que le gustan). Si es solo sobre su memoria, deja web vacío.`}
 
 FORMATO EXACTO (nombres de campo en inglés, tal cual):
-{"reply":"…","web":"","products":[],"actions":[{"op":"add","title":"Venta en Verde textos Santillana","category":"colegio","date":"2026-12-01","notes":"07:30 a 14:00 en el colegio · 28% de descuento","repeat":""}]}
+{"reply":"…","web":"","products":[],"actions":[
+ {"op":"add","type":"evento","title":"Venta en Verde textos Santillana","category":"colegio","group":"Textos 2027","date":"2026-12-01","notes":"07:30 a 14:00 en el colegio · 28% de descuento"},
+ {"op":"add","type":"compras","title":"Útiles Kinder 2027","category":"colegio","group":"Textos 2027","checks":[{"text":"Cuaderno college cuadro grande","qty":"3"},{"text":"Lápices de colores 12"}]}]}
 - Nexo aplica las actions AL INSTANTE (el usuario puede deshacer). Si el usuario pide guardar, anotar, organizar, mover, completar, planificar o pega un correo/mensaje con información, actions NO puede ir vacío.
 - Nunca digas en reply que guardaste, moviste u organizaste algo que no esté en actions. En reply resume qué guardas y dónde.
 
@@ -1329,8 +1398,11 @@ const OP_ALIAS = { agregar: 'add', anadir: 'add', crear: 'add', create: 'add', n
 function normAction(a) {
   if (!a || typeof a !== 'object') return null;
   const g = (...ks) => { for (const k of ks) if (a[k] !== undefined && a[k] !== null && a[k] !== '') return a[k]; return ''; };
-  let op = norm(String(g('op', 'operation', 'operacion', 'type', 'tipo', 'action', 'accion'))).replace(/[\s-]+/g, '_');
+  let op = norm(String(g('op', 'operation', 'operacion', 'action', 'accion'))).replace(/[\s-]+/g, '_');
   op = OPS.includes(op) ? op : OP_ALIAS[op] || '';
+  if (!op) { const t = norm(String(g('type', 'tipo'))).replace(/[\s-]+/g, '_'); if (OPS.includes(t) || OP_ALIAS[t]) op = OPS.includes(t) ? t : OP_ALIAS[t]; }
+  const itype = toType(g('item_type', 'kind', 'tipo_elemento', 'type', 'tipo'));
+  const checks = g('checks', 'checklist', 'items', 'elementos', 'subitems', 'articulos', 'productos', 'lista_items');
   const title = g('title', 'titulo', 'nombre_item', 'item', 'text', 'texto', 'task', 'tarea');
   if (!op) op = title ? 'add' : g('list_name', 'nombre_lista') ? 'add_list' : '';
   let date = String(g('date', 'fecha', 'due', 'due_date', 'fecha_limite', 'deadline'));
@@ -1340,7 +1412,9 @@ function normAction(a) {
   const notes = g('notes', 'notas', 'note', 'nota', 'details', 'detalles', 'descripcion', 'description');
   return { ...a, op, id: g('id', 'item_id', 'list_id', 'id_lista'), title: title || (op === 'add' ? g('name', 'nombre') : ''),
     category: g('category', 'categoria', 'list', 'lista', 'category_id', 'categoria_id', 'list_name', 'nombre_lista', 'to', 'destino'),
-    date, notes: Array.isArray(notes) ? notes.join('\n') : notes, name: g('name', 'nombre', 'list_name', 'nombre_lista'), repeat: g('repeat', 'repetir') };
+    date, notes: Array.isArray(notes) ? notes.join('\n') : notes, name: g('name', 'nombre', 'list_name', 'nombre_lista'), repeat: g('repeat', 'repetir'),
+    type: itype, group: g('group', 'grupo', 'section', 'seccion', 'subcategory', 'subcategoria', 'subtema'), checks,
+    url: g('url', 'link', 'enlace'), price: g('price', 'precio'), store: g('store', 'tienda') };
 }
 const pickActions = (r) => { const x = r?.actions ?? r?.acciones ?? r?.changes ?? r?.cambios ?? r?.items ?? []; return Array.isArray(x) ? x : x && typeof x === 'object' ? [x] : []; };
 function cleanActions(list) {
@@ -1354,7 +1428,11 @@ function cleanActions(list) {
       date: a.date === 'none' ? 'none' : isYmd(a.date) ? a.date : '',
       notes: String(a.notes || '').trim(), repeat: a.repeat === 'yearly' || a.repeat === 'none' ? a.repeat : '',
       name: String(a.name || '').trim().slice(0, 40), icon: LIST_ICONS.includes(a.icon) ? a.icon : '', color: COLORS.includes(a.color) ? a.color : '',
+      type: TYPES.includes(a.type) ? a.type : '', group: String(a.group || '').trim().slice(0, 60), checks: cleanChecks(a.checks),
+      url: /^https?:\/\//.test(String(a.url || '')) ? String(a.url) : '', price: String(a.price || '').trim().slice(0, 30), store: String(a.store || '').trim().slice(0, 40),
     };
+    if (x.op === 'add' && x.checks.length && !isListType(x.type)) x.type = /compr|super|util|comida|aliment/.test(norm(x.title)) ? 'compras' : 'lista';
+    if (x.op === 'add' && isListType(x.type) && !x.checks.length && x.notes) { const ls = x.notes.split('\n').filter((l) => /^\s*([-*•]|\d+[.)])\s+/.test(l)); if (ls.length >= 2) { x.checks = cleanChecks(ls); x.notes = x.notes.split('\n').filter((l) => !ls.includes(l)).join('\n').trim(); } }
     if (x.op === 'add' && !x.title) continue;
     if (['update', 'done', 'undone', 'delete'].includes(x.op) && !getItem(x.id)) continue;
     if (x.op === 'add_list' && !x.name) continue;
@@ -1696,7 +1774,7 @@ function localSearch(q) {
 }
 
 /* ============================== vistas ============================== */
-const UI = { tab: 'home', cat: null, showDone: false };
+const UI = { tab: 'home', cat: null, showDone: false, closed: new Set() };
 let pendingImg = null, pendingPdf = null;
 /* PDF: el texto se saca en el mismo iPhone (pdf.js, gratis, sin IA). Groq después lo ordena. */
 const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
@@ -1747,9 +1825,14 @@ function render() {
 function itemRow(it, showCat = true) {
   const c = cat(it.cat);
   const d = effectiveDate(it);
+  const t = itemType(it);
   const checkable = it.cat !== 'perfil' && it.repeat !== 'yearly';
+  const ck = it.checks || [];
+  const url = t === 'producto' ? itemUrl(it) : '';
   const sub = [
-    showCat && c ? esc(c.name) : '',
+    showCat && c ? esc(c.name) + (it.group ? ' › ' + esc(it.group) : '') : '',
+    isListType(t) ? `${ic(t === 'compras' ? 'cart' : 'clipboard', 'xs')} ${ck.filter((x) => x.done).length}/${ck.length}` : '',
+    t === 'producto' && (it.price || it.store) ? `<b class="ri-price">${esc(it.price || '')}</b>${it.store ? ' ' + esc(it.store) : ''}` : '',
     d ? `<span class="due ${dueClass(it)}">${it.repeat === 'yearly' ? ic('repeat', 'xs') + ' ' : ''}${relDate(d)}</span>` : '',
     it.notes ? (/https?:\/\//.test(it.notes) ? ic('link', 'xs') + ' ' : '') + esc(it.notes.replace(URL_RE, (u) => domainOf(u)).slice(0, 90)) : '',
   ].filter(Boolean).join(' · ');
@@ -1758,8 +1841,25 @@ function itemRow(it, showCat = true) {
       ? `<button class="check" data-act="check" data-id="${it.id}" aria-label="${it.done ? 'Marcar como pendiente' : 'Marcar como hecho'}">${it.done ? ic('check') : ''}</button>`
       : `<span class="dot">${ic(c?.icon || 'folder', 'sm')}</span>`}
     <button class="ri-body" data-act="open" data-id="${it.id}">
-      <span class="ri-title">${esc(it.title)}</span>${sub ? `<span class="ri-sub">${sub}</span>` : ''}
-    </button>${it.img ? `<img class="ri-thumb" src="${esc(it.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}</div>`;
+      <span class="ri-title">${t === 'evento' ? `<span class="ri-type">${ic('calendar', 'xs')}</span>` : ''}${esc(it.title)}</span>${sub ? `<span class="ri-sub">${sub}</span>` : ''}
+    </button>${url ? `<a class="lc-link" href="${esc(url)}" target="_blank" rel="noopener">${ic('link', 'xs')} Tienda</a>` : ''}${it.img ? `<img class="ri-thumb" src="${esc(it.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}</div>`;
+}
+/* Tarjeta de lista: checks marcables, progreso, link a tienda por ítem y agregar ítems ahí mismo. */
+function listCard(it) {
+  const t = itemType(it), cks = it.checks || [], n = cks.filter((c) => c.done).length, d = effectiveDate(it);
+  return `<div class="lcard ${it.done ? 'done' : ''}">
+    <button class="lc-head" data-act="open" data-id="${it.id}">
+      <span class="lc-ic">${ic(t === 'compras' ? 'cart' : 'clipboard', 'sm')}</span>
+      <span class="lc-title">${esc(it.title)}${d ? ` <span class="due ${dueClass(it)}">${relDate(d)}</span>` : ''}</span>
+      <span class="lc-ct">${n}/${cks.length}</span></button>
+    ${cks.length ? `<div class="lc-bar"><i style="width:${Math.round((n * 100) / cks.length)}%"></i></div>` : ''}
+    <ul class="lc-items">${cks.map((c, k) => `<li class="${c.done ? 'done' : ''}">
+      <button class="check sm" data-act="ck" data-id="${it.id}" data-k="${k}" aria-label="${c.done ? 'Desmarcar' : 'Marcar'} ${esc(c.t)}">${c.done ? ic('check', 'xs') : ''}</button>
+      <span class="lc-t">${esc(c.t)}${c.qty ? ` <span class="muted">· ${esc(c.qty)}</span>` : ''}${c.price ? ` <b class="ri-price">${esc(c.price)}</b>` : ''}</span>
+      ${t === 'compras' || c.url ? `<a class="lc-link" href="${esc(c.url || shopLink(c.t))}" target="_blank" rel="noopener">${ic(c.url ? 'link' : 'cart', 'xs')} ${c.url ? esc(storeName(c.url)) : 'Buscar'}</a>` : ''}
+    </li>`).join('')}</ul>
+    <form class="lc-add" data-form="ckAdd" data-id="${it.id}"><input class="in" placeholder="Agregar a esta lista…" aria-label="Agregar a ${esc(it.title)}"><button class="btn sq" aria-label="Agregar">${ic('plus', 'sm')}</button></form>
+  </div>`;
 }
 const pendingCount = (id) => S.items.filter((i) => i.cat === id && (id === 'perfil' || !i.done)).length;
 const countLabel = (c) => {
@@ -1772,7 +1872,7 @@ const HINTS = () => [
   'Mueve el perfume a Goodies',
   'Marca los útiles como comprados',
   'Cambia la fecha del viaje al 22 de dic',
-  'Crea una lista para la casa',
+  'Crea una categoría para la casa',
 ];
 
 /* Lo que importa hoy: señales concretas, sin ruido */
@@ -1832,7 +1932,7 @@ function viewHome() {
   ${hasAI() ? `<button class="btn ai brief-btn" data-act="brief">${SPARK.replace('<svg', '<svg class="ic"')} Brief del día con Nexo</button>` : ''}
   <div class="sec-row"><h2 class="sec">Próximos</h2></div>
   ${up.length ? `<div class="card list">${up.map((i) => itemRow(i)).join('')}</div>` : '<p class="empty">Nada con fecha todavía. Lo que guardes con fecha aparecerá aquí.</p>'}
-  <div class="sec-row"><h2 class="sec">Mis listas</h2><button class="link" data-act="newCat">${ic('plus', 'sm')} Nueva</button></div>
+  <div class="sec-row"><h2 class="sec">Mis categorías</h2><button class="link" data-act="newCat">${ic('plus', 'sm')} Nueva</button></div>
   <div class="grid">${S.cats.map((c) => `
     <button class="tile t-${catColor(c)}" data-act="cat" data-id="${c.id}">
       <span class="em">${ic(c.icon)}</span><span class="nm">${esc(c.name)}</span>
@@ -1842,14 +1942,14 @@ function viewHome() {
 
 function viewLists() {
   return `
-  <header class="top"><h1>Listas</h1></header>
+  <header class="top"><h1>Categorías</h1></header>
   <div class="card list" style="margin-top:14px">${S.cats.map((c) => `
     <button class="cat-row" data-act="cat" data-id="${c.id}">
       <span class="em t-${catColor(c)}">${ic(c.icon)}</span><span class="nm">${esc(c.name)}</span>
       <span class="ct">${pendingCount(c.id) || ''}</span><span class="chev">${ic('right', 'sm')}</span>
     </button>`).join('')}</div>
-  <button class="btn block" style="margin-top:14px" data-act="newCat">${ic('plus')} Nueva lista</button>
-  <p class="help">Toca una lista y luego "Editar" para cambiar su nombre, icono, color u orden.</p>`;
+  <button class="btn block" style="margin-top:14px" data-act="newCat">${ic('plus')} Nueva categoría</button>
+  <p class="help">Toca una categoría y luego "Editar" para cambiar su nombre, icono, color u orden. Dentro, Nexo ordena todo por grupos.</p>`;
 }
 
 function viewCategory(id) {
@@ -1858,15 +1958,28 @@ function viewCategory(id) {
   const all = S.items.filter((i) => i.cat === id);
   const open = sortItems(all.filter((i) => !i.done));
   const done = all.filter((i) => i.done).sort((a, b) => b.updated - a.updated);
+  const block = (items) => {
+    const lists = items.filter((i) => isListType(itemType(i))), rest = items.filter((i) => !isListType(itemType(i)));
+    return (rest.length ? `<div class="card list">${rest.map((i) => itemRow(i, false)).join('')}</div>` : '') + lists.map(listCard).join('');
+  };
+  // Grupos: cada tema (ej. "Útiles Kinder 2027") en su propia sección, plegable.
+  const groups = [...new Set(open.map((i) => i.group || ''))];
+  const named = groups.filter(Boolean).sort((a, b) => a.localeCompare(b, 'es'));
+  const sec = (g, items) => { const k = id + '|' + g, closed = UI.closed.has(k); return `<section class="grp">
+    <button class="grp-h" data-act="grp" data-k="${esc(k)}">${ic(closed ? 'right' : 'down', 'sm')}<span>${esc(g || 'General')}</span><span class="ct">${items.length}</span></button>
+    ${closed ? '' : block(items)}</section>`; };
+  const body = !open.length ? '<p class="empty">No hay pendientes aquí.</p>'
+    : named.length ? [...(groups.includes('') ? [sec('', open.filter((i) => !i.group))] : []), ...named.map((g) => sec(g, open.filter((i) => i.group === g)))].join('')
+    : block(open);
   return `
-  <div class="top-row"><button class="back" data-act="back">${ic('left', 'sm')} Listas</button></div>
+  <div class="top-row"><button class="back" data-act="back">${ic('left', 'sm')} Categorías</button></div>
   <div class="top-row" style="padding-top:0"><h1>${esc(c.name)}</h1><button class="btn" data-act="editCat" data-id="${c.id}">${ic('pencil', 'sm')} Editar</button></div>
   <form class="add-row" data-form="quickAdd">
     <input class="in" id="quickIn" placeholder="${hasAI() ? 'Agrega o pídele algo a Nexo…' : `Agregar a ${esc(c.name)}…`}" autocomplete="off" aria-label="Nuevo elemento">
     <button type="submit" class="btn primary sq" aria-label="Agregar">${ic('plus')}</button>
     ${hasAI() ? `<button type="button" class="btn ai sq" data-act="listAsk" aria-label="Pedírselo a Nexo">${SPARK.replace('<svg', '<svg class="ic"')}</button>` : ''}
   </form>
-  ${open.length ? `<div class="card list">${open.map((i) => itemRow(i, false)).join('')}</div>` : '<p class="empty">No hay pendientes aquí.</p>'}
+  ${body}
   ${done.length ? `<button class="toggle-done" data-act="toggleDone">${UI.showDone ? 'Ocultar' : 'Mostrar'} completados (${done.length})</button>
     ${UI.showDone ? `<div class="card list" style="margin-top:8px">${done.map((i) => itemRow(i, false)).join('')}</div>
     <button class="toggle-done" style="color:var(--danger)" data-act="clearDone" data-id="${id}">Borrar completados</button>` : ''}` : ''}`;
@@ -1924,7 +2037,7 @@ const mapsUrl = (p) => `https://maps.apple.com/?daddr=${encodeURIComponent(`${p.
 function productsHtml(m, i) {
   if (!m.products?.length) return '';
   const opts = S.cats.map((c) => `<option value="${c.id}" ${c.id === m.dest ? 'selected' : ''}>${esc(c.name)}</option>`).join('') +
-    (m.dest.startsWith('new:') ? `<option value="${esc(m.dest)}" selected>+ Lista nueva: ${esc(m.dest.slice(4))}</option>` : '');
+    (m.dest.startsWith('new:') ? `<option value="${esc(m.dest)}" selected>+ Categoría nueva: ${esc(m.dest.slice(4))}</option>` : '');
   const pending = m.products.filter((p) => !p.saved).length;
   return `<div class="pcards ${m.products.length === 1 ? 'one' : ''}">${m.products.map((p, j) => `<div class="pcard ${j === 0 ? 'best' : ''}">
       <a class="pc-img" href="${esc(p.url || mapsUrl(p))}" target="_blank" rel="noopener" aria-label="Ver ${esc(p.name)}">
@@ -1961,7 +2074,7 @@ function saveProducts(i, js) {
   let n = 0;
   for (const j of js) {
     const p = m.products[j]; if (!p || p.saved) continue;
-    if (addItem({ title: p.name, cat: catId, img: p.img, notes: [`${p.store}${p.price ? ' · ' + p.price : ''} · visto el ${today}`, p.address ? 'Dirección: ' + p.address : '', p.note, p.url, p.address ? mapsUrl(p) : ''].filter(Boolean).join('\n') })) { p.saved = true; n++; }
+    if (addItem({ title: p.name, cat: catId, img: p.img, type: p.address ? 'nota' : 'producto', url: p.address ? '' : p.url, price: /\d/.test(p.price) ? p.price : '', store: p.address ? '' : p.store, notes: [`${p.store}${p.price ? ' · ' + p.price : ''} · visto el ${today}`, p.address ? 'Dirección: ' + p.address : '', p.note, p.url, p.address ? mapsUrl(p) : ''].filter(Boolean).join('\n') })) { p.saved = true; n++; }
   }
   save(); render();
   toast(n > 1 ? `${n} guardados en ${catName(catId)}` : `Guardado en ${catName(catId)}`, { undo: true });
@@ -2072,13 +2185,13 @@ function viewSettings() {
   <h2 class="sec">Memoria</h2>
   <div class="card list">
     <button class="set-row" data-act="redoOnb">${ic('user')}<span class="nm">Editar mis datos y familia</span>${ic('right', 'sm')}</button>
-    <button class="set-row" data-act="goLists">${ic('folder')}<span class="nm">Editar listas</span>${ic('right', 'sm')}</button>
+    <button class="set-row" data-act="goLists">${ic('folder')}<span class="nm">Editar categorías</span>${ic('right', 'sm')}</button>
     <button class="set-row" data-act="export">${ic('upload')}<span class="nm">Exportar respaldo</span><span class="muted small">${S.items.length} elementos</span></button>
     <button class="set-row" data-act="import">${ic('download')}<span class="nm">Importar respaldo</span>${ic('right', 'sm')}</button>
     <button class="set-row danger" data-act="wipe">${ic('trash')}<span class="nm">Borrar toda la memoria</span></button>
   </div>
   <p class="help">Tu información vive solo en este teléfono. Haz un respaldo de vez en cuando y guárdalo en iCloud Drive (Archivos).</p>
-  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v5.4</p>`;
+  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v6.0</p>`;
 }
 
 function afterRender() {
@@ -2145,7 +2258,7 @@ function catOptions(selected) {
   let sel = 'notas', extra = '';
   const f = findCat(selected);
   if (f) sel = f.id;
-  else if (selected) { sel = 'new:' + selected; extra = `<option value="${esc(sel)}" selected>+ Lista nueva: ${esc(selected)}</option>`; }
+  else if (selected) { sel = 'new:' + selected; extra = `<option value="${esc(sel)}" selected>+ Categoría nueva: ${esc(selected)}</option>`; }
   return extra + S.cats.map((c) => `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
 }
 const catLabelFor = (value) => { const f = findCat(value); return f ? f.name : `${value} (nueva)`; };
@@ -2173,7 +2286,7 @@ function addRow(a, k) {
       <span class="ch-op add">Nuevo</span>
       <input class="in pv-title" value="${esc(a.title)}" aria-label="Título">
       <div class="pv-row">
-        <select class="in pv-cat" aria-label="Lista">${catOptions(a.category)}</select>
+        <select class="in pv-cat" aria-label="Categoría">${catOptions(a.category)}</select>
         <input type="date" class="in pv-date" value="${esc(a.date === 'none' ? '' : a.date)}" aria-label="Fecha">
       </div>
       <textarea class="in pv-notes" rows="${a.notes ? 2 : 1}" placeholder="Notas" aria-label="Notas">${esc(a.notes)}</textarea>
@@ -2181,12 +2294,12 @@ function addRow(a, k) {
 }
 function changeRow(a, k) {
   const it = getItem(a.id), c = cat(a.id);
-  const L = { update: 'Editar', done: 'Marcar como hecho', undone: 'Marcar pendiente', delete: 'Eliminar', add_list: 'Lista nueva', update_list: 'Editar lista', delete_list: 'Eliminar lista' };
+  const L = { update: 'Editar', done: 'Marcar como hecho', undone: 'Marcar pendiente', delete: 'Eliminar', add_list: 'Categoría nueva', update_list: 'Editar lista', delete_list: 'Eliminar lista' };
   let title = '', diff = [];
   if (['update', 'done', 'undone', 'delete'].includes(a.op)) title = it.title;
   if (a.op === 'update') {
     if (a.title && a.title !== it.title) diff.push(`Título: <b>${esc(a.title)}</b>`);
-    if (a.category && findCat(a.category)?.id !== it.cat) diff.push(`Lista: ${esc(catName(it.cat))} → <b>${esc(catLabelFor(a.category))}</b>`);
+    if (a.category && findCat(a.category)?.id !== it.cat) diff.push(`Categoría: ${esc(catName(it.cat))} → <b>${esc(catLabelFor(a.category))}</b>`);
     if (a.date) diff.push(`Fecha: ${esc(fmtDate(it.date))} → <b>${esc(a.date === 'none' ? 'sin fecha' : fmtDate(a.date))}</b>`);
     if (a.repeat) diff.push(`Repetir cada año: <b>${a.repeat === 'yearly' ? 'sí' : 'no'}</b>`);
     if (a.notes) diff.push(`Notas: <b>${esc(a.notes)}</b>`);
@@ -2256,14 +2369,14 @@ function applyNow(actions) {
   snapshot();
   const done = [];
   for (const a of actions) {
-    if (a.op === 'add_list') { const id = ensureCategory(a.name, a.icon, a.color); done.push({ kind: 'Lista creada', cat: id, title: catName(id) }); }
-    if (a.op === 'update_list') { const c = cat(a.id); if (!c) continue; if (a.name) c.name = a.name; if (a.icon) c.icon = a.icon; if (a.color) c.color = a.color; done.push({ kind: 'Lista actualizada', cat: c.id, title: c.name }); }
+    if (a.op === 'add_list') { const id = ensureCategory(a.name, a.icon, a.color); done.push({ kind: 'Categoría creada', cat: id, title: catName(id) }); }
+    if (a.op === 'update_list') { const c = cat(a.id); if (!c) continue; if (a.name) c.name = a.name; if (a.icon) c.icon = a.icon; if (a.color) c.color = a.color; done.push({ kind: 'Categoría actualizada', cat: c.id, title: c.name }); }
   }
   for (const a of actions) {
     if (a.op === 'add') {
       const catId = ensureCategory(a.category || 'notas');
-      const it = addItem({ title: a.title, cat: catId, date: a.date === 'none' ? '' : a.date, notes: a.notes, repeat: a.repeat });
-      if (it) done.push({ kind: 'Guardado', cat: catId, title: it.title, date: it.date });
+      const it = addItem({ title: a.title, cat: catId, date: a.date === 'none' ? '' : a.date, notes: a.notes, repeat: a.repeat, type: a.type, group: a.group, checks: a.checks, url: a.url, price: a.price, store: a.store });
+      if (it) done.push({ kind: 'Guardado', cat: catId, group: it.group, title: it.title, date: it.date, n: it.checks?.length || 0, type: itemType(it) });
       continue;
     }
     const it = getItem(a.id);
@@ -2275,23 +2388,33 @@ function applyNow(actions) {
       if (a.date === 'none') it.date = ''; else if (a.date) it.date = a.date;
       if (a.notes) it.notes = a.notes;
       if (a.repeat === 'yearly') it.repeat = 'yearly'; else if (a.repeat === 'none') it.repeat = '';
+      if (a.type) it.type = a.type;
+      if (a.group) { if (a.group !== it.group && kind !== 'Movido') kind = 'Ordenado'; it.group = a.group; }
+      if (a.url) it.url = a.url; if (a.price) it.price = a.price; if (a.store) it.store = a.store;
+      if (a.checks?.length) {
+        const have = new Set((it.checks || []).map((c) => norm(c.t)));
+        const add = a.checks.filter((c) => !have.has(norm(c.t)));
+        it.checks = [...(it.checks || []), ...add]; if (!isListType(itemType(it))) it.type = 'lista';
+        if (add.length) { it.done = false; kind = `${add.length} ítem${add.length > 1 ? 's' : ''} agregado${add.length > 1 ? 's' : ''}`; }
+      }
       if (it.pkey) { delete S.profile[it.pkey]; delete it.pkey; }
     }
     if (a.op === 'done') { it.done = true; kind = 'Completado'; }
     if (a.op === 'undone') { it.done = false; kind = 'Pendiente otra vez'; }
     it.updated = Date.now();
-    done.push({ kind, cat: it.cat, title: it.title, date: it.date });
+    done.push({ kind, cat: it.cat, group: it.group, title: it.title, date: it.date, n: 0, type: itemType(it) });
   }
   save();
   return done;
 }
 function doneSummary(done) {
   const groups = {};
-  for (const d of done) (groups[`${d.kind}|${d.cat}`] ||= []).push(d);
+  for (const d of done) (groups[`${d.kind}|${d.cat}|${d.group || ''}`] ||= []).push(d);
+  const TL = { lista: 'lista', compras: 'lista de compras', evento: 'recordatorio', producto: 'producto' };
   return Object.entries(groups).map(([k, ds]) => {
-    const [kind, c] = k.split('|');
-    if (kind.startsWith('Lista')) return `**${kind}:** ${ds.map((d) => d.title).join(', ')}`;
-    return `**${kind} en ${catName(c)}** (${ds.length}):\n` + ds.map((d) => `- ${d.title}${d.date ? ' · ' + new Date(d.date + 'T12:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }) : ''}`).join('\n');
+    const [kind, c, g] = k.split('|');
+    if (kind.startsWith('Categoría')) return `**${kind}:** ${ds.map((d) => d.title).join(', ')}`;
+    return `**${kind} en ${catName(c)}${g ? ' › ' + g : ''}** (${ds.length}):\n` + ds.map((d) => `- ${d.title}${TL[d.type] ? ` (${TL[d.type]}${d.n ? `, ${d.n} ítems` : ''})` : ''}${d.date ? ' · ' + new Date(d.date + 'T12:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }) : ''}`).join('\n');
   }).join('\n\n');
 }
 /* Aplica la respuesta de Nexo: lo seguro se guarda ya; borrar queda para revisar. */
@@ -2313,8 +2436,22 @@ function openItem(id) {
       <button class="btn ai sq" aria-label="Enviar a Nexo">${ic('up')}</button></form>` : ''}
     <label class="lbl" for="edTitle">Título</label>
     <input class="in" id="edTitle" value="${esc(it.title)}">
-    <label class="lbl" for="edCat">Lista</label>
-    <select class="in" id="edCat">${catOptions(it.cat)}</select>
+    <label class="lbl" for="edType">Tipo</label>
+    <select class="in" id="edType" onchange="document.getElementById('ckEd').hidden=!/^(lista|compras)$/.test(this.value)">${TYPES.map((t) => `<option value="${t}" ${t === itemType(it) ? 'selected' : ''}>${TYPE_NAMES[t]}</option>`).join('')}</select>
+    <div id="ckEd" ${isListType(itemType(it)) ? '' : 'hidden'}>
+      <label class="lbl">Ítems</label>
+      <div class="ck-list">${(it.checks || []).map(ckRowHtml).join('')}</div>
+      <button type="button" class="btn" data-act="ckNew">${ic('plus', 'sm')} Agregar ítem</button>
+    </div>
+    <div class="pv-row" style="gap:10px">
+      <div style="flex:1"><label class="lbl" for="edCat">Categoría</label><select class="in" id="edCat">${catOptions(it.cat)}</select></div>
+      <div style="flex:1"><label class="lbl" for="edGroup">Grupo</label><input class="in" id="edGroup" list="grpList" value="${esc(it.group || '')}" placeholder="Opcional"></div>
+    </div>
+    <datalist id="grpList">${[...new Set(S.items.map((i) => i.group).filter(Boolean))].map((g) => `<option value="${esc(g)}">`).join('')}</datalist>
+    <div class="pv-row" style="gap:10px">
+      <div style="flex:2"><label class="lbl" for="edUrl">Link de la tienda</label><input class="in" id="edUrl" type="url" value="${esc(it.url || '')}" placeholder="https://…"></div>
+      <div style="flex:1"><label class="lbl" for="edPrice">Precio</label><input class="in" id="edPrice" value="${esc(it.price || '')}" placeholder="$"></div>
+    </div>
     <label class="lbl" for="edDate">Fecha</label>
     <div class="pv-row"><input type="date" class="in" id="edDate" value="${esc(it.date)}">
       <label class="btn" style="font-weight:500; gap:8px"><input type="checkbox" id="edYearly" ${it.repeat === 'yearly' ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--mint)">Cada año</label></div>
@@ -2328,14 +2465,30 @@ function openItem(id) {
       <button class="btn primary" data-act="saveItem" data-id="${it.id}">Guardar</button>
     </div>`);
 }
+function ckRowHtml(c) {
+  return `<div class="ck-row"><input type="checkbox" class="ck-done" ${c.done ? 'checked' : ''} aria-label="Hecho">
+    <input class="in ck-t" value="${esc(c.t)}${c.qty ? ' · ' + esc(c.qty) : ''}" placeholder="Ítem">
+    <button type="button" class="btn sq" data-act="ckDel" aria-label="Quitar ítem">${ic('x', 'sm')}</button>
+    <input class="in ck-url" value="${esc(c.url || '')}" placeholder="Link de la tienda (opcional)"></div>`;
+}
 function saveItem(id) {
   const it = getItem(id);
   if (!it) return;
   const title = $('#edTitle').value.trim();
   if (!title) return toast('El título no puede estar vacío');
   snapshot();
+  const type = $('#edType').value;
+  const checks = $$('#ckEd .ck-row').map((r) => {
+    const [t, qty] = $('.ck-t', r).value.split(' · ');
+    const url = $('.ck-url', r).value.trim();
+    return t.trim() ? { id: uid(), t: t.trim(), qty: (qty || '').trim(), url: /^https?:\/\//.test(url) ? url : '', price: '', done: $('.ck-done', r).checked } : null;
+  }).filter(Boolean);
+  const url = $('#edUrl').value.trim();
+  Object.assign(it, { type, group: $('#edGroup').value.trim() || undefined, url: /^https?:\/\//.test(url) ? url : undefined, price: $('#edPrice').value.trim() || undefined });
+  if (isListType(type)) { it.checks = checks; if (checks.length) it.done = checks.every((c) => c.done); } else if (!checks.length) delete it.checks;
+  const cv = $('#edCat').value;
   Object.assign(it, {
-    title, cat: $('#edCat').value, notes: $('#edNotes').value.trim(),
+    title, cat: cv.startsWith('new:') ? ensureCategory(cv.slice(4)) : cv, notes: $('#edNotes').value.trim(),
     date: isYmd($('#edDate').value) ? $('#edDate').value : '',
     repeat: $('#edYearly').checked ? 'yearly' : '', updated: Date.now(),
   });
@@ -2349,7 +2502,7 @@ function openCatEditor(id) {
   const icon = c?.icon || 'folder', color = c ? catColor(c) : 'dark';
   const idx = c ? S.cats.indexOf(c) : -1;
   openSheet(`
-    <h3>${c ? 'Editar lista' : 'Nueva lista'}</h3>
+    <h3>${c ? 'Editar categoría' : 'Nueva categoría'}</h3>
     <label class="lbl" for="ceName">Nombre</label>
     <input class="in" id="ceName" value="${esc(c?.name || '')}" placeholder="Ej: Casa, Gym, Samantha…">
     <label class="lbl">Icono</label>
@@ -2373,7 +2526,7 @@ function saveCat(id) {
   snapshot();
   if (id) Object.assign(cat(id), { name, icon, color });
   else { const f = findCat(name); if (f) Object.assign(f, { icon, color }); else ensureCategory(name, icon, color); }
-  save(); closeSheet(); render(); toast('Lista guardada', { undo: true });
+  save(); closeSheet(); render(); toast('Categoría guardada', { undo: true });
 }
 
 /* ============================== acciones ============================== */
@@ -2392,7 +2545,7 @@ async function doCapture(btn) {
   const img = pendingImg, pdf = pendingPdf;
   if (!typed && !img && !pdf) return toast('Escribe algo, agrega una foto o un PDF');
   // Con PDF: lo que escribiste es la instrucción y el texto del PDF va completo a la IA.
-  const text = pdf ? `${typed || 'Organiza este documento: guarda cada fecha, evento, tarea, compra o dato importante en la lista que corresponde, con su fecha, y planifícalo para que no se me pase nada.'}\n\nCONTENIDO DEL PDF "${pdf.name}":\n${pdf.text.slice(0, PDF_MAX)}` : typed;
+  const text = pdf ? `${typed || 'Organiza este documento: guarda cada fecha, evento, lista, compra o dato importante en la categoría y grupo que corresponden, con su fecha, y planifícalo para que no se me pase nada.'}\n\nCONTENIDO DEL PDF "${pdf.name}":\n${pdf.text.slice(0, PDF_MAX)}` : typed;
   const shown = pdf ? `${typed ? typed + '\n' : ''}(PDF: ${pdf.name})` : typed || '(imagen)';
   const clear = () => { pendingImg = null; pendingPdf = null; const t = $('#capText'); if (t) t.value = ''; };
   if (!hasAI()) {
@@ -2523,6 +2676,16 @@ const ACTIONS = {
     toast(it.done ? 'Hecho' : 'Pendiente otra vez', { undo: true });
   },
   open: (el) => openItem(el.dataset.id),
+  ck: (el) => {
+    const it = getItem(el.dataset.id), c = it?.checks?.[+el.dataset.k]; if (!c) return;
+    snapshot(); c.done = !c.done;
+    const all = it.checks.every((x) => x.done);
+    if (all !== it.done) { it.done = all; if (all) toast(`Lista completa: ${it.title}`, { undo: true }); }
+    it.updated = Date.now(); save(); render();
+  },
+  grp: (el) => { const k = el.dataset.k; UI.closed.has(k) ? UI.closed.delete(k) : UI.closed.add(k); render(); },
+  ckNew: () => { const box = $('#ckEd .ck-list'); if (!box) return; box.insertAdjacentHTML('beforeend', ckRowHtml({ t: '', url: '', done: false })); $$('.ck-t', box).pop().focus(); },
+  ckDel: (el) => el.closest('.ck-row')?.remove(),
   saveItem: (el) => saveItem(el.dataset.id),
   delItem: (el) => {
     const it = getItem(el.dataset.id); if (!it) return;
@@ -2581,10 +2744,10 @@ const ACTIONS = {
   },
   delCat: (el) => {
     snapshot(); removeList(el.dataset.id); save(); closeSheet(); go('lists');
-    toast('Lista eliminada', { undo: true });
+    toast('Categoría eliminada', { undo: true });
   },
   reviewApply: () => applyReview(),
-  listAsk: (el) => askAbout(`En la lista [lista id:${UI.cat}] "${catName(UI.cat)}":`, $('#quickIn'), el),
+  listAsk: (el) => askAbout(`En la categoría [categoría id:${UI.cat}] "${catName(UI.cat)}":`, $('#quickIn'), el),
   suggest: (el) => doAsk(el.textContent),
   retryAsk: (el) => { const i = +el.dataset.i, q = CHAT[i]?.retry; if (!q) return; CHAT.splice(i - 1, 2); doAsk(q); },
   chatReview: (el) => {
@@ -2632,6 +2795,13 @@ document.addEventListener('change', (e) => {
 document.addEventListener('submit', (e) => {
   const form = e.target, f = form.dataset.form; if (!f) return;
   e.preventDefault();
+  if (f === 'ckAdd') {
+    const it = getItem(form.dataset.id), inp = $('input', form), v = inp.value.trim(); if (!it || !v) return;
+    snapshot(); it.checks = [...(it.checks || []), ...cleanChecks([v])]; it.done = false; if (!isListType(itemType(it))) it.type = 'lista';
+    it.updated = Date.now(); save(); render();
+    setTimeout(() => $(`[data-form="ckAdd"][data-id="${it.id}"] input`)?.focus(), 0);
+    return;
+  }
   if (f === 'quickAdd') {
     const v = $('#quickIn').value.trim(); if (!v) return;
     addItem({ title: v, cat: UI.cat }); save(); render();
