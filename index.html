@@ -767,9 +767,25 @@ async function rawGenerate(model, key, body, ms) {
   let k = Math.min(+(lsGet(THINK_STORE + model) || 0), chain.length - 1);
   const setTh = () => { if (chain[k]) b.generationConfig.thinkingConfig = chain[k]; else delete b.generationConfig.thinkingConfig; };
   setTh();
-  const post = () => gfetch(`${API}/models/${encodeURIComponent(model)}:generateContent`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(b),
-  }, ms);
+  // Respuesta por partes (streaming): el límite de tiempo es para EMPEZAR a responder y para pausas largas,
+  // no para el total. Así las respuestas largas (correos, cronogramas) no se cortan.
+  let ctl;
+  const post = async () => {
+    for (let attempt = 0; ; attempt++) {
+      ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms);
+      try {
+        const res = await fetch(`${API}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(b), signal: ctl.signal,
+        });
+        return res;
+      } catch (e) {
+        if (ctl.signal.aborted) throw gErr('Gemini tardó demasiado en empezar a responder.', 'timeout');
+        if (navigator.onLine === false) throw gErr('Sin conexión a internet.', 'offline');
+        if (attempt < 1) { await sleep(1200); continue; }
+        throw gErr('Se cortó la conexión con Gemini. Mantén la app abierta e intenta de nuevo.', 'net');
+      } finally { clearTimeout(t); }
+    }
+  };
   let r = await post();
   // 400 por configuración: prueba el siguiente nivel de pensamiento (sin saltar a "pensar mucho", que es lento).
   while (r.status === 400 && k < chain.length - 1) {
@@ -788,10 +804,39 @@ async function rawGenerate(model, key, body, ms) {
   // Saturado: reintenta una vez rápido.
   if (r.status >= 500) { await sleep(1200); r = await post(); }
   if (!r.ok) throw await apiError(r);
-  const j = await r.json();
-  const txt = (j.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || '').join('');
-  if (!txt) throw gErr('Gemini no respondió' + (j.promptFeedback?.blockReason ? ` (${j.promptFeedback.blockReason})` : '') + '.', 'empty');
-  return { txt, cand: j.candidates[0] };
+  return readStream(r, ctl);
+}
+async function readStream(r, ctl) {
+  let buf = '', txt = '', cand = null, gm = null, block = '', idle, said = false;
+  const eat = (chunk) => {
+    buf += chunk;
+    let i;
+    while ((i = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+      if (!line.startsWith('data:')) continue;
+      let j; try { j = JSON.parse(line.slice(5)); } catch { continue; }
+      const c = j.candidates?.[0];
+      if (c) { cand = c; if (c.groundingMetadata) gm = c.groundingMetadata; txt += (c.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || '').join(''); }
+      if (j.promptFeedback?.blockReason) block = j.promptFeedback.blockReason;
+      if (txt && !said) { said = true; STATUS?.('Nexo está escribiendo…'); }
+    }
+  };
+  if (!r.body?.getReader) eat((await r.text()) + '\n');
+  else {
+    const reader = r.body.getReader(), dec = new TextDecoder();
+    const arm = () => { clearTimeout(idle); idle = setTimeout(() => ctl.abort(), 30000); };
+    const total = setTimeout(() => ctl.abort(), 180000);
+    arm();
+    try {
+      for (;;) { const { value, done } = await reader.read(); if (done) break; arm(); eat(dec.decode(value, { stream: true })); }
+      eat('\n');
+    } catch (e) {
+      throw gErr(ctl.signal.aborted ? 'Gemini dejó de responder a mitad de camino.' : 'Se cortó la conexión con Gemini mientras respondía. Mantén la app abierta.', ctl.signal.aborted ? 'timeout' : 'net');
+    } finally { clearTimeout(idle); clearTimeout(total); }
+  }
+  if (!txt) throw gErr('Gemini no respondió' + (block ? ` (${block})` : '') + '.', 'empty');
+  if (gm) cand = { ...cand, groundingMetadata: gm };
+  return { txt, cand };
 }
 /* Usa el modelo elegido; si está limitado, saturado o lento, pasa al instante a otro modelo (cada uno tiene su cupo).
    Solo si todos están limitados espera lo que Google indique (máx 30 s). */
@@ -848,7 +893,7 @@ function parseJSON(txt) {
   throw new Error('No entendí la respuesta de Gemini. Intenta de nuevo.');
 }
 const liteModel = () => rankModels(MODELS).find((m) => /lite/.test(m) && /gemini-([3-9]|\d\d)/.test(m)) || rankModels(MODELS).find((m) => /lite/.test(m)) || getModel();
-async function gemini({ system, parts, history = [], schema, prefer, ms = 25000, max }) {
+async function gemini({ system, parts, history = [], schema, prefer, ms = 30000, max }) {
   if (!getKey()) throw new Error('Conecta Gemini en Ajustes.');
   const body = {
     systemInstruction: { parts: [{ text: system }] },
@@ -1200,6 +1245,44 @@ function findPrice(txt) {
   const top = Math.max(...nums, 0);
   return nums.filter((n) => n >= top * 0.3).sort((a, b) => a - b)[0] || 0;
 }
+const fmtPrice = (n) => (shopCountry().code === 'cl' ? '$' + n.toLocaleString('es-CL') : '$' + n.toLocaleString());
+const priceNum = (p) => +String(p || '').replace(/\D/g, '') || 0;
+/* Precio dentro de la página de la tienda: el primero que aparece después del nombre del producto. */
+function priceFromPage(raw, name) {
+  const t = String(raw || '').slice(0, 40000);
+  const low = norm(t);
+  const words = norm(name).split(/[^a-z0-9]+/).filter((w) => w.length > 3);
+  let at = 0;
+  for (const w of words) { const i = low.indexOf(w); if (i >= 0) { at = i; break; } }
+  const re = /(?:\$|CLP)\s?(\d{1,3}(?:[.\s]\d{3})+|\d{4,7})(?!\s?%)/g;
+  for (const from of [at, 0]) {
+    re.lastIndex = from;
+    const m = re.exec(t);
+    if (m) { const n = findPrice(t.slice(m.index, m.index + 260)); if (n) return n; }
+  }
+  return 0;
+}
+/* Abre las páginas de las tiendas (Tavily Extract) para leer el precio que no venía en el resumen. */
+const samePage = (a, b) => { try { const x = new URL(a), y = new URL(b); return x.hostname.replace(/^www\./, '') === y.hostname.replace(/^www\./, '') && x.pathname.replace(/\/$/, '') === y.pathname.replace(/\/$/, ''); } catch { return a === b; } };
+async function fillPrices(products) {
+  const key = getTavily();
+  const miss = products.filter((p) => p.url && !priceNum(p.price) && !p.address).slice(0, 10);
+  if (!key || !miss.length) return null;
+  const r = await gfetch('https://api.tavily.com/extract', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` }, body: JSON.stringify({ urls: miss.map((p) => p.url), extract_depth: 'basic', format: 'text' }) }, 20000, 'La lectura de precios');
+  if (!r.ok) return null;
+  const j = await r.json();
+  let n = 0;
+  const out = products.map((p) => {
+    const page = (j.results || []).find((x) => samePage(x.url, p.url));
+    if (!page || priceNum(p.price)) return p;
+    const v = priceFromPage(page.raw_content, p.name);
+    const img = p.img || bestImage(page.images);
+    if (v) n++;
+    return { ...p, img, price: v ? fmtPrice(v) : p.price };
+  });
+  return n || out.some((p, i) => p.img !== products[i].img) ? out : null;
+}
+const sortByPrice = (ps) => [...ps].sort((a, b) => (priceNum(a.price) ? 0 : 1) - (priceNum(b.price) ? 0 : 1) || priceNum(a.price) - priceNum(b.price));
 function cleanTitle(t, store) {
   let x = String(t || '').split(/\s+[|–—]\s+|\s+-\s+(?=[^-]*$)/)[0].trim();
   if (norm(x) === norm(store) || x.length < 4) x = String(t || '').trim();
@@ -1253,6 +1336,14 @@ async function searchFlow(q, text, near, parts, history, onStatus) {
   }
   const products = localProducts(web, text);
   const res = { reply: localReply(web, products), actions: [], sources: web.sources, entry: '', links: products.length ? [] : searchLinks(q, text || '').slice(0, 2), products };
+  // Precios que no venían en el resumen: se leen de cada página en segundo plano.
+  if (!near && getTavily()) res.fillPrices = async (cur) => {
+    const ps = await fillPrices(cur);
+    if (!ps) return null;
+    const sorted = sortByPrice(ps);
+    web.text += '\n\nPRECIOS LEÍDOS EN LAS PÁGINAS DE LAS TIENDAS (úsalos, son los actuales):\n' + sorted.filter((p) => priceNum(p.price)).map((p) => `- ${p.name} — ${p.store} — ${p.price} — ${p.url}`).join('\n');
+    return { products: sorted, reply: localReply(web, sorted) };
+  };
   // Gemini afina en segundo plano (mejores nombres, descarta lo que no sirve). Si falla o está limitado, queda lo rápido.
   if (hasAI()) res.refine = async () => {
     await ensureModels();
@@ -1265,13 +1356,57 @@ async function searchFlow(q, text, near, parts, history, onStatus) {
   };
   return res;
 }
+/* Preguntas sobre las opciones que Nexo acaba de mostrar ("¿cuál tiene el mejor precio?", "¿y la segunda?"). */
+const FOLLOW = /^(y\s+)?(cual|cuales|que opcion|ese|esa|esos|esas|este|esta|estos|estas|el (primero|segundo|tercero|ultimo|mas|de)|la (primera|segunda|tercera|ultima|mas|de)|entre|de (esos|esas|estos|estas|ellos|ellas|las opciones)|ordena|ordenalos|ordenalas|comparalos|comparalas)\b|\b(de (esos|esas|estos|estas|ellos|ellas)|de las opciones|entre (esos|esas|estos|estas|ellos|ellas))\b/;
+const PRICE_Q = /(mejor precio|mas barat|menor precio|mas economic|mas conveniente|precio|cuesta|vale|ordena)/;
+function lastProductsMsg() {
+  for (let i = CHAT.length - 1; i >= 0; i--) {
+    const m = CHAT[i];
+    if (m.role === 'bot' && !m.thinking && m.products?.length) return m;
+    if (m.role === 'bot' && !m.thinking && m.text && i < CHAT.length - 2) return null;
+  }
+  return null;
+}
+async function answerFromProducts(prev, onStatus) {
+  let ps = prev.products.map((p) => ({ ...p, saved: false }));
+  if (ps.some((p) => !priceNum(p.price))) {
+    onStatus?.('Revisando los precios en cada tienda…');
+    try { const f = await fillPrices(ps); if (f) { ps = f; if (!prev.products.some((p) => p.saved)) prev.products = f.map((p, j) => ({ ...p, saved: prev.products[j]?.saved })); } } catch {}
+  }
+  const priced = sortByPrice(ps).filter((p) => priceNum(p.price));
+  if (!priced.length) return { reply: 'No pude leer los precios en las páginas de esas tiendas. Ábrelas con **Ver** para revisarlos.', actions: [], products: ps, sources: [], links: [] };
+  const b = priced[0];
+  // Tamaños distintos (2 kg vs 14 kg): compara también el precio por kilo.
+  const kg = (p) => { const m = norm(p.name).match(/(\d+(?:[.,]\d+)?)\s?(kg|kilos?|k)\b/); return m ? parseFloat(m[1].replace(',', '.')) : 0; };
+  const perKg = (p) => (kg(p) ? Math.round(priceNum(p.price) / kg(p)) : 0);
+  const withKg = priced.filter(perKg);
+  const sizes = new Set(withKg.map(kg));
+  const bestKg = sizes.size > 1 ? [...withKg].sort((x, y) => perKg(x) - perKg(y))[0] : null;
+  const kgTxt = (p) => (sizes.size > 1 && perKg(p) ? ` · ${fmtPrice(perKg(p))}/kg` : '');
+  const rest = priced.slice(1).map((p) => `- ${p.store}: ${p.price}${kgTxt(p)} (${p.name})`).join('\n');
+  const noPrice = ps.length - priced.length;
+  const kgLine = bestKg ? `\n\n**Por kilo conviene:** ${bestKg.name} en **${bestKg.store}** (${fmtPrice(perKg(bestKg))}/kg).` : '';
+  return { reply: `**Mejor precio:** ${b.name} en **${b.store}** a **${b.price}**${kgTxt(b)}.${kgLine}${rest ? '\n\nLas demás:\n' + rest : ''}${noPrice ? `\n\n${noPrice} opción${noPrice > 1 ? 'es' : ''} sin precio visible en la página.` : ''}`, actions: [], products: sortByPrice(ps), sources: [], links: [] };
+}
 async function aiCommand0(text, img, history, onStatus, parts) {
   const nt = norm(text || '');
+  const prev = !img && lastProductsMsg();
+  if (prev && FOLLOW.test(nt.trim())) {
+    if (PRICE_Q.test(nt)) return answerFromProducts(prev, onStatus);
+    // Otra pregunta sobre esas opciones: Gemini responde con ellas en el contexto (sin buscar de nuevo).
+    const r = await gemini({ system: commandSystem() + '\n\nOPCIONES QUE ACABAS DE MOSTRAR (responde sobre ESTAS, no busques otras; deja web vacío):\n' + prev.products.map((p, j) => `${j + 1}. ${p.name} — ${p.store} — ${p.price || 'sin precio'} — ${p.url}`).join('\n'), parts, history, schema: CMD_SCHEMA });
+    return { reply: String(r.reply || ''), actions: cleanActions(r.actions), sources: [], entry: '', links: [], products: [] };
+  }
   const near = webOn() && !img && NEAR.test(nt) && /(cerca|recomien|sugier|busca|donde|algun|quiero (ir|comer|tomar)|abiert|mejor|bueno|rico)/.test(nt);
   const wantsWeb = webOn() && !img && (WEB_STRONG.test(nt) || near);
   if (geoOn() && (wantsWeb || near)) { try { await refreshGeo(); } catch (e) { if (near) onStatus?.('Sin ubicación actual: uso la última conocida'); } }
   // Pedido claro de internet: se busca directo, sin gastar una pregunta de Gemini en armar la búsqueda.
-  if (wantsWeb) return searchFlow(getTavily() ? localQuery(text, near) : (await makeQuery(text, history, near) || (text || '').slice(0, 300)), text, near, parts, history, onStatus);
+  if (wantsWeb) {
+    let q = getTavily() ? localQuery(text, near) : '';
+    const meaningful = norm(q).replace(/\b(precio|cual|cuales|tiene|es|el|la|los|las|de|que)\b/g, '').trim();
+    if (!q || meaningful.length < 3 || (history.length && meaningful.split(/\s+/).length < 2)) q = await makeQuery(text, history, near) || q || (text || '').slice(0, 300);
+    return searchFlow(q, text, near, parts, history, onStatus);
+  }
   const r = await gemini({ system: commandSystem(), parts, history, schema: CMD_SCHEMA });
   let q = String(r.web || '').trim();
   // Si Gemini dice que "no tiene acceso", busca de todos modos.
@@ -1298,6 +1433,57 @@ function localClassify(text) {
   const c = hit ? hit[1] : 'notas';
   return [{ op: 'add', title: first, notes: rest.trim(), category: c, date: '', repeat: '' }];
 }
+/* Borrador sin IA: saca fechas, horarios y tareas de un correo o texto largo para que nada se pierda. */
+const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+function findDate(s) {
+  const n = norm(s).replace(/setiembre/g, 'septiembre');
+  let d = null;
+  const m = n.match(new RegExp(`\\b(\\d{1,2})(?:\\s+(?:al|y|-|a)\\s+\\d{1,2})?\\s+de\\s+(${MONTHS.join('|')})(?:\\s+(?:de|del)\\s+(\\d{4}))?`));
+  if (m) d = { day: +m[1], mon: MONTHS.indexOf(m[2]), year: m[3] ? +m[3] : 0 };
+  else { const k = n.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/); if (k && +k[2] >= 1 && +k[2] <= 12) d = { day: +k[1], mon: +k[2] - 1, year: k[3] ? (+k[3] < 100 ? 2000 + +k[3] : +k[3]) : 0 }; }
+  if (!d || d.day < 1 || d.day > 31) return '';
+  const now = new Date();
+  let y = d.year || now.getFullYear();
+  if (!d.year && new Date(y, d.mon, d.day) < new Date(now.getTime() - 30 * DAY)) y++;
+  return ymd(new Date(y, d.mon, d.day));
+}
+function findTime(s) {
+  const m = String(s).match(/(\d{1,2}[:.]\d{2})\s*(?:hrs?\.?|horas)?\s*(?:hasta las|a las|al|-|–)\s*(\d{1,2}[:.]\d{2})/i) || String(s).match(/a las (\d{1,2}[:.]\d{2})/i);
+  return m ? (m[2] ? `${m[1].replace('.', ':')} a ${m[2].replace('.', ':')} h` : `${m[1].replace('.', ':')} h`) : '';
+}
+function draftTitle(line) {
+  let t = line.trim().replace(/\s+/g, ' ');
+  const ev = t.match(/se (?:realizar[aá]|llevar[aá] a cabo|har[aá]|efectuar[aá]|celebrar[aá])\s+(?:en [^,]+?\s+(?=(?:la|el|una|un)\s))?(?:la|el|una|un)\s+([^.,;]+)/i);
+  if (ev) t = ev[1];
+  for (let k = 0; k < 4; k++) t = t.replace(/^(junto con saludar,?|asimismo,?|adem[aá]s,?|por otra parte,?|les?|nos|hago env[ií]o de|informo que|comunico que|recuerdo que|recordamos que|adjunto|env[ií]o|cabe (?:se[nñ]alar|mencionar) que|la|el|los|las)\s+/i, '');
+  t = t.replace(/[.:;]+$/, '');
+  if (t.length > 80) t = t.slice(0, 80).replace(/\s+\S*$/, '') + '…';
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+function localExtract(text) {
+  const n = norm(text);
+  const hit = RULES.find(([re, id]) => re.test(n) && cat(id));
+  const catg = hit ? hit[1] : 'notas';
+  const kids = (S.profile.kids || '').split(/[,y]/).map((x) => x.trim()).filter(Boolean);
+  const who = kids.find((k) => n.includes(norm(k)));
+  const SKIP = /^(estimad|hola|querid|buen[oa]s|saludos|atte|atentamente|cordialmente|agradec|gracias|un abrazo|se despide)/;
+  const TASK = /(adjunt|env[ií]o de|lista de|traer|llevar|comprar|compra|pagar|pago|firmar|reuni[oó]n|entregar|recordar|inscrib|matr[ií]cul|uniforme|materiales|[uú]tiles|cuota|autorizaci[oó]n|disfraz|presentaci[oó]n|prueba|evaluaci[oó]n)/i;
+  const out = [];
+  for (const raw of String(text).split(/\n+/)) {
+    const line = raw.trim();
+    if (line.length < 12) continue;
+    const date = findDate(line);
+    // La instrucción del usuario ("ayúdame a organizar este correo…") no es una tarea.
+    if (/(ayudame|organiza|organizalo|planifica|guarda (esto|este)|mando este correo|me (mandaron|llego) este)/.test(norm(line))) continue;
+    if (!date && (SKIP.test(norm(line)) || !TASK.test(line))) continue;
+    const prev = out[out.length - 1];
+    if (date && prev && prev.date === date) { prev.notes += '\n' + line; continue; }
+    const time = findTime(line);
+    out.push({ op: 'add', title: draftTitle(line), category: catg, date, repeat: '', notes: [time ? 'Horario: ' + time : '', who ? `Para ${who}` : '', line].filter(Boolean).join('\n') });
+  }
+  return out.slice(0, 15);
+}
+const localDraft = (text) => { const x = localExtract(text); return x.length ? x : localClassify(text); };
 function localSearch(q) {
   const STOP = new Set(['que', 'cual', 'cuales', 'como', 'para', 'por', 'los', 'las', 'del', 'una', 'uno', 'con', 'tengo', 'mis', 'hay', 'esta', 'este', 'donde', 'cuando', 'quien', 'le']);
   const words = norm(q).split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !STOP.has(w));
@@ -1469,18 +1655,32 @@ function botMsg(r, extra = {}) {
 }
 /* Cuando Gemini termina de afinar una búsqueda, actualiza la tarjeta (si aún no se guardó nada). */
 function attachRefine(msg, r) {
-  if (!r.refine) return;
+  if (!r.refine && !r.fillPrices) return;
   msg.refining = true;
-  r.refine().then((x) => {
-    if (!x || msg.products?.some((p) => p.saved)) return;
-    const nb = botMsg({ ...x, actions: [] });
-    msg.text = x.reply;
-    // Lo afinado va primero; se mantienen las demás opciones encontradas.
-    if (nb.products?.length) {
-      const rest = (msg.products || []).filter((p) => !nb.products.some((q) => q.url === p.url));
-      msg.products = [...nb.products, ...rest].slice(0, 6); msg.dest = nb.dest;
+  const show = () => { if (UI.tab === 'ask') render(); };
+  (async () => {
+    const untouched = () => !msg.products?.some((p) => p.saved);
+    if (r.fillPrices) {
+      try {
+        const f = await r.fillPrices(msg.products || []);
+        if (f && untouched()) { msg.products = f.products; msg.text = f.reply; show(); }
+      } catch {}
     }
-  }).catch(() => {}).finally(() => { msg.refining = false; if (UI.tab === 'ask') render(); });
+    if (!r.refine) return;
+    try {
+      const x = await r.refine();
+      if (!x || !untouched()) return;
+      const nb = botMsg({ ...x, actions: [] });
+      msg.text = x.reply;
+      if (nb.products?.length) {
+        const known = msg.products || [];
+        // Si Gemini no trae precio, se usa el que ya se leyó de la página.
+        const fixed = nb.products.map((p) => { const k = known.find((q) => q.url === p.url); return { ...p, price: priceNum(p.price) ? p.price : k?.price || p.price, img: p.img || k?.img || '' }; });
+        const rest = known.filter((p) => !fixed.some((q) => q.url === p.url));
+        msg.products = [...fixed, ...rest].slice(0, 6); msg.dest = nb.dest;
+      }
+    } catch {}
+  })().finally(() => { msg.refining = false; show(); });
 }
 function destName(d) { return d.startsWith('new:') ? d.slice(4) : catName(d); }
 const mapsUrl = (p) => `https://maps.apple.com/?daddr=${encodeURIComponent(`${p.name}, ${p.address}${/santiago|chile/i.test(p.address) ? '' : ', Santiago, Chile'}`)}&dirflg=d`;
@@ -1560,7 +1760,8 @@ function viewAsk() {
       ? m.applied ? `<div class="applied">${ic('check', 'sm')} Cambios aplicados</div>`
         : `<button class="btn primary" data-act="chatReview" data-i="${i}">Revisar y aplicar ${m.actions.length} cambio${m.actions.length > 1 ? 's' : ''}</button>`
       : '';
-    return `<div class="bot-row"><span class="nx">${SPARK}</span><div class="bubble bot ${m.thinking ? 'thinking' : ''}">${body}${act}</div></div>`;
+    const retry = m.retry && !m.applied ? `<button class="btn" data-act="retryAsk" data-i="${i}">${ic('repeat', 'sm')} Reintentar</button>` : '';
+    return `<div class="bot-row"><span class="nx">${SPARK}</span><div class="bubble bot ${m.thinking ? 'thinking' : ''}">${body}${act}${retry}</div></div>`;
   }).join('');
   return `
   <header class="top"><h1>Pregúntale a Nexo</h1></header>
@@ -1644,7 +1845,7 @@ function viewSettings() {
     <button class="set-row danger" data-act="wipe">${ic('trash')}<span class="nm">Borrar toda la memoria</span></button>
   </div>
   <p class="help">Tu información vive solo en este teléfono. Haz un respaldo de vez en cuando y guárdalo en iCloud Drive (Archivos).</p>
-  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v4.4</p>`;
+  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v4.6</p>`;
 }
 
 function afterRender() {
@@ -1899,7 +2100,7 @@ async function runNexo(text, btn, img = null) {
 }
 function chatHistory() {
   return CHAT.filter((m) => !m.thinking && m.text).slice(-10)
-    .map((m) => ({ role: m.role === 'me' ? 'user' : 'model', parts: [{ text: m.text }] }));
+    .map((m) => ({ role: m.role === 'me' ? 'user' : 'model', parts: [{ text: m.text + (m.products?.length ? '\n[Opciones mostradas: ' + m.products.map((p, j) => `${j + 1}) ${p.name} — ${p.store} — ${p.price || 'sin precio'}`).join('; ') + ']' : '') }] }));
 }
 async function doCapture(btn) {
   const text = $('#capText').value.trim();
@@ -1908,10 +2109,10 @@ async function doCapture(btn) {
   const clear = () => { pendingImg = null; const t = $('#capText'); if (t) t.value = ''; };
   if (!hasAI()) {
     if (img) return toast('Para leer fotos, conecta Gemini en Ajustes');
-    return openReview(localClassify(text), '', clear);
+    return openReview(localDraft(text), '', clear);
   }
   const r = await runNexo(text, btn, img);
-  if (!r) { if (text) openReview(localClassify(text), 'Sin IA en este momento: revisa antes de guardar.', clear); return; }
+  if (!r) { if (text) openReview(localDraft(text), 'Gemini no respondió esta vez. Armé este borrador sin IA para que no se pierda nada: revísalo antes de guardar.', clear); return; }
   if (r.actions.length) return openReview(r.actions, r.reply, clear);
   // sin cambios: fue una pregunta → la respuesta va al chat
   const bm = botMsg(r, { text: r.reply || 'No encontré nada que guardar.' });
@@ -1939,7 +2140,10 @@ async function doAsk(q) {
     Object.assign(thinking, botMsg(r, { thinking: false, text: r.reply || (r.actions.length ? 'Te propongo estos cambios.' : 'Listo.') }));
     attachRefine(thinking, r);
   } catch (e) {
-    Object.assign(thinking, { thinking: false, text: 'Hubo un problema: ' + e.message });
+    // Si era un correo o texto largo, deja un borrador sin IA listo para revisar y guardar.
+    const draft = q.length > 80 && e.code !== 'key' ? localExtract(q) : [];
+    Object.assign(thinking, { thinking: false, retry: q, actions: draft,
+      text: draft.length ? `Gemini no respondió esta vez (${e.message.replace(/\.+$/, '')}). Para que no se pierda nada, armé un **borrador sin IA** con ${draft.length} elemento${draft.length > 1 ? 's' : ''}: revísalo antes de guardar, o toca **Reintentar**.` : 'Hubo un problema: ' + e.message });
   }
   if (UI.tab === 'ask') render();
 }
@@ -2073,6 +2277,7 @@ const ACTIONS = {
   reviewApply: () => applyReview(),
   listAsk: (el) => askAbout(`En la lista [lista id:${UI.cat}] "${catName(UI.cat)}":`, $('#quickIn'), el),
   suggest: (el) => doAsk(el.textContent),
+  retryAsk: (el) => { const i = +el.dataset.i, q = CHAT[i]?.retry; if (!q) return; CHAT.splice(i - 1, 2); doAsk(q); },
   chatReview: (el) => {
     const m = CHAT[+el.dataset.i]; if (!m?.actions?.length) return;
     openReview(m.actions, '', () => { m.applied = true; });
