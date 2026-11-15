@@ -184,6 +184,35 @@ label.lbl{display:block; font-size:12px; font-weight:600; color:var(--muted); ma
 .diag-row{display:flex; gap:12px; align-items:flex-start; padding:10px 0; border-bottom:1px solid var(--line)}
 .diag-row .ic, .diag-row .spin{margin-top:3px; flex:none}
 .diag-row .small{word-break:break-word}
+.pcards{display:flex; gap:12px; overflow-x:auto; scroll-snap-type:x mandatory; margin:12px -15px 0; padding:2px 15px 6px; scroll-padding:15px; -webkit-overflow-scrolling:touch; scrollbar-width:none}
+.pcards::-webkit-scrollbar{display:none}
+.pcards.one .pcard{flex-basis:100%}
+.pcard{flex:0 0 80%; scroll-snap-align:start; background:var(--surface2); border:1px solid var(--line); border-radius:22px; overflow:hidden; display:flex; flex-direction:column}
+.pcard.best{border-color:var(--mint); box-shadow:0 0 0 1px var(--mint) inset}
+.pc-img{position:relative; display:block; aspect-ratio:1/1; background:#fff; overflow:hidden}
+.pc-img img{position:absolute; inset:0; width:100%; height:100%; object-fit:contain; padding:14px; box-sizing:border-box}
+.pc-img .pc-ph{position:absolute; inset:0; display:none; align-items:center; justify-content:center; color:var(--muted); background:linear-gradient(155deg,#2a2a2e,#1e1e20)}
+.pc-img .pc-ph .ic{width:44px; height:44px; opacity:.6}
+.pc-img.noimg, .pc-img:not(:has(img)){background:transparent}
+.pc-img.noimg .pc-ph, .pc-img:not(:has(img)) .pc-ph{display:flex}
+.pc-badge{position:absolute; top:10px; left:10px; font-size:12px; font-weight:700; color:#0d0d0f; background:var(--mint); border-radius:99px; padding:4px 10px}
+.pc-body{padding:12px 14px 14px; display:flex; flex-direction:column; flex:1}
+.pc-head{display:flex; align-items:center; justify-content:space-between; gap:8px}
+.pc-store{font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:600}
+.pc-name{font-size:16px; font-weight:600; margin-top:4px; line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+.pc-price{font-size:26px; font-weight:700; color:var(--mint); margin-top:4px; letter-spacing:-.01em}
+.pc-note{font-size:14px; color:var(--muted); margin-top:2px}
+.pc-actions{display:flex; gap:8px; margin-top:auto; padding-top:12px}
+.pc-actions .btn{flex:1; min-height:42px; margin:0; font-size:15px; gap:6px}
+.pc-actions .btn.is-saved{background:transparent; color:var(--mint); border:1px solid var(--mint); opacity:1}
+.pc-hint{display:flex; align-items:center; justify-content:center; gap:6px; font-size:13px; color:var(--muted); margin:4px 0 0}
+.pc-hint .ic{width:12px; height:12px}
+.ri-thumb{width:48px; height:48px; flex:none; border-radius:12px; background:#fff; object-fit:contain; padding:4px; box-sizing:border-box; align-self:center}
+.it-hero{display:block; width:100%; max-height:240px; object-fit:contain; background:#fff; border-radius:18px; padding:12px; box-sizing:border-box; margin:4px 0 8px}
+.pc-foot{display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:12px}
+.pc-foot label{flex-basis:100%}
+.pc-foot select{flex:1; min-width:0; min-height:42px; padding:8px 12px; font-size:15px}
+.pc-foot .btn{margin:0; min-height:42px; font-size:15px}
 .srcs{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px}
 .src{display:inline-flex; align-items:center; gap:5px; max-width:100%; padding:5px 10px; border-radius:99px; background:var(--surface2); color:var(--lav); font-size:13px; text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .src .ic{width:13px; height:13px; flex:none}
@@ -311,7 +340,7 @@ const pad = (n) => String(n).padStart(2, '0');
 const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const parseYmd = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
 const isYmd = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(parseYmd(s));
-const fmtDate = (s) => isYmd(s) ? parseYmd(s).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : 'sin fecha';
+const fmtDate = (s) => isYmd(s) ? parseYmd(s).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' }) : 'sin fecha';
 const today0 = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
 const DAY = 86400000;
 
@@ -411,7 +440,7 @@ const DEFAULT_CATS = [
   { id: 'notas', name: 'Notas', icon: 'note', color: 'violet', system: true },
 ];
 function freshData() {
-  return { v: 2, onboarded: false, profile: { spouse: 'Maru', kids: 'Samantha' }, cats: DEFAULT_CATS.map((c) => ({ ...c })), items: [] };
+  return { v: 3, onboarded: false, profile: { spouse: 'Maru', kids: 'Samantha', shopWhere: 'Santiago, Región Metropolitana, Chile' }, cats: DEFAULT_CATS.map((c) => ({ ...c })), items: [] };
 }
 function migrate(d) {
   // v1 → v2: iconos de línea en vez de emoji, colores editables, nombres de la familia
@@ -426,7 +455,8 @@ function migrate(d) {
   d.profile = d.profile || {};
   if (!d.profile.spouse) d.profile.spouse = 'Maru';
   if (!d.profile.kids) d.profile.kids = 'Samantha';
-  d.v = 2;
+  if (!d.profile.shopWhere || ((d.v || 0) < 3 && /m[eé]xico|guadalajara/i.test(d.profile.shopWhere))) d.profile.shopWhere = 'Santiago, Región Metropolitana, Chile';
+  d.v = 3;
   return d;
 }
 function load() {
@@ -452,7 +482,7 @@ function addItem(o) {
   const it = {
     id: uid(), title: String(o.title || '').trim().slice(0, 200), notes: String(o.notes || '').trim(),
     cat: cat(o.cat) ? o.cat : 'notas', date: isYmd(o.date) ? o.date : '', repeat: o.repeat === 'yearly' ? 'yearly' : '',
-    kind: o.kind || '', done: false, created: Date.now(), updated: Date.now(), pkey: o.pkey || undefined,
+    kind: o.kind || '', img: /^https:\/\//.test(o.img || '') ? o.img : undefined, done: false, created: Date.now(), updated: Date.now(), pkey: o.pkey || undefined,
   };
   if (!it.title) return null;
   S.items.push(it); return it;
@@ -495,7 +525,7 @@ function relDate(d) {
   if (days < 7) return `En ${days} días`;
   const opts = { day: 'numeric', month: 'short' };
   if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
-  return d.toLocaleDateString('es-MX', opts);
+  return d.toLocaleDateString('es-CL', opts);
 }
 function dueClass(it) {
   const d = effectiveDate(it);
@@ -773,24 +803,47 @@ const SHOP_HINT = /(precio|compra|comprar|tienda|barato|oferta|descuento|perfume
 function searchLinks(q, original) {
   const clean = q.replace(/^(b[uú]s?came|busca|buscar|arma( mi)?|encuentra|investiga)\s+/i, '').replace(/\s+(y )?(gu[aá]rda(lo|los|la|las)?|con links?|al mejor precio)\b.*$/i, '').trim().slice(0, 120) || q.slice(0, 120);
   const enc = encodeURIComponent(clean);
-  const us = /(estados unidos|usa|eeuu|ee\.uu|united states)/i.test(shopWhere());
-  const out = [{ title: 'Buscar en Google', uri: `https://www.google.com/search?q=${enc}` }];
+  const c = shopCountry(), dash = encodeURIComponent(clean.replace(/\s+/g, '-'));
+  const out = [{ title: 'Buscar en Google', uri: `https://www.google.com/search?q=${enc}&gl=${c.gl}` }];
   if (SHOP_HINT.test(norm(original + ' ' + q))) {
-    out.unshift({ title: 'Google Shopping (comparar precios)', uri: `https://www.google.com/search?tbm=shop&q=${enc}` });
-    out.push({ title: us ? 'Amazon' : 'Amazon México', uri: `https://www.amazon.${us ? 'com' : 'com.mx'}/s?k=${enc}` });
-    if (!us) out.push({ title: 'Mercado Libre', uri: `https://listado.mercadolibre.com.mx/${encodeURIComponent(clean.replace(/\s+/g, '-'))}` });
+    out.unshift({ title: 'Google Shopping (comparar precios)', uri: `https://www.google.com/search?tbm=shop&q=${enc}&gl=${c.gl}` });
+    if (c.code === 'cl') out.push(
+      { title: 'Mercado Libre Chile', uri: `https://listado.mercadolibre.cl/${dash}` },
+      { title: 'Falabella', uri: `https://www.falabella.com/falabella-cl/search?Ntt=${enc}` },
+      { title: 'Paris', uri: `https://www.paris.cl/search/?q=${enc}` });
+    else if (c.code === 'mx') out.push({ title: 'Mercado Libre', uri: `https://listado.mercadolibre.com.mx/${dash}` }, { title: 'Amazon México', uri: `https://www.amazon.com.mx/s?k=${enc}` });
+    else if (c.code === 'us') out.push({ title: 'Amazon', uri: `https://www.amazon.com/s?k=${enc}` });
   }
   return out;
 }
-const shopWhere = () => (S.profile.shopWhere || '').trim();
+const DEFAULT_WHERE = 'Santiago, Región Metropolitana, Chile';
+const shopWhere = () => (S.profile.shopWhere || '').trim() || DEFAULT_WHERE;
+/* País para buscar: sale de "Dónde compras" (Chile por defecto). */
+function shopCountry() {
+  const w = norm(shopWhere());
+  if (/(estados unidos|usa|eeuu|ee\.uu|united states)/.test(w)) return { tav: 'united states', name: 'Estados Unidos', cur: 'USD', gl: 'us', code: 'us' };
+  if (/mexico/.test(w)) return { tav: 'mexico', name: 'México', cur: 'MXN', gl: 'mx', code: 'mx' };
+  if (/argentina/.test(w)) return { tav: 'argentina', name: 'Argentina', cur: 'ARS', gl: 'ar', code: 'ar' };
+  if (/espana|spain/.test(w)) return { tav: 'spain', name: 'España', cur: 'EUR', gl: 'es', code: 'es' };
+  return { tav: 'chile', name: 'Chile', cur: 'CLP', gl: 'cl', code: 'cl' };
+}
 const URL_RE = /https?:\/\/[^\s<>"'`)\]]+[^\s<>"'`)\].,;:!?]/g;
 const domainOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
 /* Tavily: buscador para apps de IA (plan gratis). Trae resultados con links directos; Gemini los lee después. */
 const TAVILY_STORE = 'cerebro.tavily.key';
 const getTavily = () => lsGet(TAVILY_STORE) || '';
+/* De las imágenes de una página, elige la que más parece foto de producto. */
+function bestImage(list) {
+  const urls = (list || []).map((im) => (typeof im === 'string' ? im : im?.url)).filter((u) => /^https:\/\//.test(u || ''));
+  const bad = /(logo|icon|sprite|favicon|banner|placeholder|pixel|tracking|avatar|badge|flag|payment|whatsapp|facebook|instagram|\.svg|\.gif|1x1)/i;
+  const score = (u) => (bad.test(u) ? -10 : 0) + (/(product|producto|\/p\/|media|catalog|images?\/|cdn|static\/)/i.test(u) ? 2 : 0) + (/\.(jpe?g|webp|png)(\?|$)/i.test(u) ? 1 : 0) + (/(\d{3,4})x(\d{3,4})|w_\d{3}|width=\d{3}/i.test(u) ? 1 : 0);
+  const best = urls.map((u) => [u, score(u)]).filter((e) => e[1] >= 0).sort((a, b) => b[1] - a[1])[0];
+  return best ? best[0] : '';
+}
 async function tavilySearch(query, key = getTavily()) {
-  const us = /(estados unidos|usa|eeuu|ee\.uu|united states)/i.test(shopWhere());
-  const body = { query: query.slice(0, 380), search_depth: 'basic', max_results: 8, include_answer: false, topic: 'general', country: us ? 'united states' : 'mexico' };
+  const c = shopCountry();
+  const q = norm(query).includes(norm(c.name)) ? query : `${query} ${c.name}`;
+  const body = { query: q.slice(0, 380), search_depth: 'basic', max_results: 8, include_answer: false, include_images: true, topic: 'general', country: c.tav };
   const post = (b) => gfetch('https://api.tavily.com/search', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` }, body: JSON.stringify(b) }, 25000);
   let r = await post(body);
   if (r.status === 400) { delete body.country; r = await post(body); }
@@ -809,6 +862,8 @@ async function tavilySearch(query, key = getTavily()) {
     text: results.map((x, i) => `${i + 1}. ${x.title || domainOf(x.url)} — ${x.url}\n${String(x.content || '').replace(/\s+/g, ' ').slice(0, 450)}`).join('\n\n'),
     sources: results.map((x) => ({ title: domainOf(x.url), uri: x.url })).filter((x, i, a) => a.findIndex((y) => y.title === x.title) === i).slice(0, 8),
     entry: '', query, engine: 'tavily',
+    images: Object.fromEntries(results.map((x) => [x.url, bestImage(x.images)]).filter((e) => e[1])),
+    poolImages: (j.images || []).map((im) => (typeof im === 'string' ? im : im?.url)).filter(Boolean),
   };
 }
 async function webSearch(query, original) {
@@ -816,7 +871,7 @@ async function webSearch(query, original) {
   const where = shopWhere();
   const body = {
     systemInstruction: { parts: [{ text: `Eres un investigador de compras y datos actuales. ${todayLine()} Busca en Google y entrega hallazgos concretos y verificables, en español.
-${where ? `El usuario vive en ${where}: prioriza tiendas que vendan o envíen ahí, con precios en su moneda.` : 'Si la petición no dice país, prioriza tiendas en línea que envíen a México y precios en MXN, e indica la moneda siempre.'}
+El usuario vive en ${where}: prioriza tiendas que vendan o despachen ahí, con precios en ${shopCountry().cur}.
 Para productos: una línea por opción con nombre exacto (marca, presentación/tamaño), tienda, precio y la URL directa de la página del producto. Ordena del mejor precio al más alto. Máximo 8 opciones. Si un precio no es seguro, dilo.
 Para otros datos (clima, horarios, info de lugares): resumen breve con fecha y fuente.
 No inventes URLs ni precios: solo los que veas en los resultados.` }] },
@@ -854,15 +909,16 @@ const ACTION_SCHEMA = {
   },
   required: ['op'],
 };
-const CMD_SCHEMA = { type: 'OBJECT', properties: { reply: { type: 'STRING' }, web: { type: 'STRING' }, actions: { type: 'ARRAY', items: ACTION_SCHEMA } }, required: ['reply', 'actions'] };
+const PRODUCT_SCHEMA = { type: 'OBJECT', properties: { name: { type: 'STRING' }, store: { type: 'STRING' }, price: { type: 'STRING' }, url: { type: 'STRING' }, note: { type: 'STRING' }, category: { type: 'STRING' } }, required: ['name', 'url'] };
+const CMD_SCHEMA = { type: 'OBJECT', properties: { reply: { type: 'STRING' }, web: { type: 'STRING' }, products: { type: 'ARRAY', items: PRODUCT_SCHEMA }, actions: { type: 'ARRAY', items: ACTION_SCHEMA } }, required: ['reply', 'actions'] };
 
 function todayLine() {
   const d = new Date();
-  return `Hoy es ${d.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} (${ymd(d)}).`;
+  return `Hoy es ${d.toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} (${ymd(d)}).`;
 }
 function whoLine() {
   const n = S.profile.name, e = spouse(), k = (S.profile.kids || '').trim();
-  return `El usuario se llama ${n || '(sin nombre)'}${e ? `; su esposa se llama ${e}` : ''}${k ? `; hijos: ${k}` : ''}.`;
+  return `El usuario se llama ${n || '(sin nombre)'}${e ? `; su esposa se llama ${e}` : ''}${k ? `; hijos: ${k}` : ''}. Vive en ${shopWhere()} (moneda ${shopCountry().cur}).`;
 }
 function memoryText() {
   const out = S.cats.map((c) => {
@@ -909,7 +965,11 @@ INTERNET: ya buscaste "${web.query}". RESULTADOS:
 ${web.text}
 FUENTES:
 ${web.sources.map((x) => `- ${x.title}: ${x.uri}`).join('\n') || '(sin fuentes)'}
-Los RESULTADOS son páginas encontradas (título — URL — extracto). Con estos resultados: responde en reply con lo más útil (mejor precio primero, tienda y precio). Si el usuario pidió guardar, armar una lista o "buscar y guardar", propone actions add en la lista que corresponda (crea la lista con add_list si no existe, ej. mascotas → icon paw). En notes pon tienda, precio con moneda, fecha de hoy y el link. Para el link usa la URL directa del producto si aparece en RESULTADOS; si no, usa la de FUENTES de esa tienda. Nunca inventes links ni precios. Deja web vacío.` : `- SÍ tienes acceso a internet con Google a través del campo web: nunca digas que no tienes acceso a internet o a información en tiempo real. Si para cumplir la petición necesitas información actual de internet (precios, ofertas, tiendas, links, disponibilidad, clima, horarios, noticias, datos de lugares) pon en web una búsqueda concreta (producto, marca, presentación, país) y deja actions vacío; reply: una frase corta. Antes de buscar usa la memoria para afinar (ej. marca de croquetas de la mascota, perfumes que le gustan). Si es solo sobre su memoria, deja web vacío.`}
+Los RESULTADOS son páginas encontradas (título — URL — extracto).
+- Si son productos o tiendas: llena products (máx 6), ordenados del mejor precio al más alto. name: marca + producto + tamaño, claro y corto. store: nombre de la tienda (ej. Falabella, Paris, Ripley, Mercado Libre). price: como aparece, en ${shopCountry().cur} con formato local (ej. $54.990); si no aparece el precio, "Ver precio". url: la URL EXACTA de RESULTADOS (nunca inventes). note: máx 8 palabras útiles (oferta, despacho, tamaño). category: la lista donde conviene guardarlo (id existente, o nombre de lista nueva como "Mascotas").
+  En ese caso reply es SOLO 1 o 2 frases: cuál conviene y por qué. No repitas los productos en reply, no pongas links en reply y deja actions vacío (el usuario guarda cada producto con un botón).
+- Si no son productos (clima, horarios, lugares, datos): deja products vacío y responde en reply breve y claro.
+- Deja web vacío.` : `- SÍ tienes acceso a internet con Google a través del campo web: nunca digas que no tienes acceso a internet o a información en tiempo real. Si para cumplir la petición necesitas información actual de internet (precios, ofertas, tiendas, links, disponibilidad, clima, horarios, noticias, datos de lugares) pon en web una búsqueda concreta (producto, marca, presentación, país) y deja actions vacío; reply: una frase corta. Antes de buscar usa la memoria para afinar (ej. marca de croquetas de la mascota, perfumes que le gustan). Si es solo sobre su memoria, deja web vacío.`}
 
 MEMORIA DEL USUARIO:
 ${memoryText()}`;
@@ -934,6 +994,17 @@ function cleanActions(list) {
   }
   return out.slice(0, 40);
 }
+/* Solo links que de verdad vinieron en los resultados (nada inventado). */
+function cleanProducts(list, web) {
+  const urls = new Set((web.text.match(URL_RE) || []).concat(web.sources.map((x) => x.uri)));
+  const byDomain = (u) => web.sources.find((x) => domainOf(x.uri) === domainOf(u))?.uri;
+  return (Array.isArray(list) ? list : []).map((p) => {
+    let url = String(p?.url || '').trim();
+    if (!urls.has(url)) url = byDomain(url) || '';
+    const img = (web.images || {})[url] || Object.entries(web.images || {}).find(([u]) => domainOf(u) === domainOf(url))?.[1] || '';
+    return { img, name: String(p?.name || '').trim().slice(0, 120), store: String(p?.store || '').trim().slice(0, 40) || (url ? domainOf(url) : ''), price: String(p?.price || '').trim().slice(0, 30), url, note: String(p?.note || '').trim().slice(0, 80), category: String(p?.category || '').trim().slice(0, 40) };
+  }).filter((p) => p.name && p.url).slice(0, 6);
+}
 async function aiCommand(text, img, history = [], onStatus) {
   const parts = [];
   if (img) parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
@@ -957,7 +1028,8 @@ async function aiCommand(text, img, history = [], onStatus) {
     onStatus?.('Armando la respuesta…');
     r = await gemini({ system: commandSystem(web), parts, history, schema: CMD_SCHEMA });
   }
-  return { reply: String(r.reply || ''), actions: cleanActions(r.actions), sources: web?.sources || [], entry: web?.entry || '', links: [] };
+  const products = web ? cleanProducts(r.products, web) : [];
+  return { reply: String(r.reply || ''), actions: products.length ? [] : cleanActions(r.actions), sources: web?.sources || [], entry: web?.entry || '', links: [], products };
 }
 
 /* sin IA */
@@ -1018,7 +1090,7 @@ function itemRow(it, showCat = true) {
       : `<span class="dot">${ic(c?.icon || 'folder', 'sm')}</span>`}
     <button class="ri-body" data-act="open" data-id="${it.id}">
       <span class="ri-title">${esc(it.title)}</span>${sub ? `<span class="ri-sub">${sub}</span>` : ''}
-    </button></div>`;
+    </button>${it.img ? `<img class="ri-thumb" src="${esc(it.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}</div>`;
 }
 const pendingCount = (id) => S.items.filter((i) => i.cat === id && (id === 'perfil' || !i.done)).length;
 const countLabel = (c) => {
@@ -1056,7 +1128,7 @@ function toggleMic(btn) {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { toast('Toca el micrófono del teclado para dictar'); $('#capText').focus(); return; }
   if (REC) { REC.stop(); return; }
-  const r = new SR(); r.lang = 'es-MX'; r.interimResults = true; r.continuous = false;
+  const r = new SR(); r.lang = 'es-CL'; r.interimResults = true; r.continuous = false;
   const ta = $('#capText'); const base = ta.value ? ta.value.trim() + ' ' : '';
   r.onresult = (e) => { let t = ''; for (const res of e.results) t += res[0].transcript; ta.value = base + t; };
   r.onend = () => { REC = null; btn.classList.remove('rec'); };
@@ -1065,7 +1137,7 @@ function toggleMic(btn) {
 }
 function viewHome() {
   const n = S.profile.name;
-  const d = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+  const d = new Date().toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' });
   const up = upcoming(6);
   return `
   <header class="top home-top">
@@ -1143,6 +1215,54 @@ function linkify(html) {
   html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (m, t, u) => `<a class="lnk" href="${u}" target="_blank" rel="noopener">${t}</a>`);
   return html.replace(/(^|[^"'>=])(https?:\/\/[^\s<>"']+[^\s<>"'.,;:!?)])/g, (m, pre, u) => `${pre}<a class="lnk" href="${u}" target="_blank" rel="noopener">${esc(domainOf(u.replace(/&amp;/g, '&')))}</a>`);
 }
+function botMsg(r, extra = {}) {
+  const dest = r.products?.length ? (r.products.find((p) => p.category)?.category || '') : '';
+  return { role: 'bot', text: r.reply, actions: r.actions, sources: r.sources, entry: r.entry, links: r.links, products: r.products, dest: findCat(dest)?.id || (dest ? 'new:' + dest : 'notas'), ...extra };
+}
+function destName(d) { return d.startsWith('new:') ? d.slice(4) : catName(d); }
+function productsHtml(m, i) {
+  if (!m.products?.length) return '';
+  const opts = S.cats.map((c) => `<option value="${c.id}" ${c.id === m.dest ? 'selected' : ''}>${esc(c.name)}</option>`).join('') +
+    (m.dest.startsWith('new:') ? `<option value="${esc(m.dest)}" selected>+ Lista nueva: ${esc(m.dest.slice(4))}</option>` : '');
+  const pending = m.products.filter((p) => !p.saved).length;
+  return `<div class="pcards ${m.products.length === 1 ? 'one' : ''}">${m.products.map((p, j) => `<div class="pcard ${j === 0 ? 'best' : ''}">
+      <a class="pc-img" href="${esc(p.url)}" target="_blank" rel="noopener" aria-label="Ver ${esc(p.name)}">
+        ${p.img ? `<img src="${esc(p.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.classList.add('noimg');this.remove()">` : ''}
+        <span class="pc-ph">${ic(/mascot|perr|gat|croquet/.test(norm(p.name + ' ' + p.category)) ? 'paw' : 'bag')}</span>
+        ${j === 0 && /\d/.test(p.price) ? '<span class="pc-badge">Mejor precio</span>' : ''}
+      </a>
+      <div class="pc-body">
+      <div class="pc-head"><span class="pc-store">${esc(p.store)}</span></div>
+      <div class="pc-name">${esc(p.name)}</div>
+      <div class="pc-price">${esc(p.price || 'Ver precio')}</div>
+      ${p.note ? `<div class="pc-note">${esc(p.note)}</div>` : ''}
+      <div class="pc-actions">
+        <a class="btn" href="${esc(p.url)}" target="_blank" rel="noopener">${ic('link', 'sm')} Ver</a>
+        <button class="btn ${p.saved ? 'is-saved' : 'primary'}" data-act="saveProd" data-i="${i}" data-j="${j}" ${p.saved ? 'disabled' : ''}>${p.saved ? ic('check', 'sm') + ' Guardado' : ic('plus', 'sm') + ' Guardar'}</button>
+      </div></div></div>`).join('')}</div>
+    ${m.products.length > 1 ? `<p class="pc-hint">${ic('left', 'xs')} Desliza para ver las ${m.products.length} opciones ${ic('right', 'xs')}</p>` : ''}
+    <div class="pc-foot">
+      <label class="small muted" for="dest${i}">Guardar en</label>
+      <select class="in" id="dest${i}" data-dest="${i}">${opts}</select>
+      ${pending > 1 ? `<button class="btn" data-act="saveAllProd" data-i="${i}">Guardar los ${pending}</button>` : ''}
+    </div>`;
+}
+function saveProducts(i, js) {
+  const m = CHAT[i]; if (!m?.products) return;
+  const sel = document.querySelector(`[data-dest="${i}"]`); if (sel) m.dest = sel.value;
+  snapshot();
+  const icon = /mascot|perr|gat|croquet/.test(norm(m.dest)) ? 'paw' : 'bag';
+  const catId = m.dest.startsWith('new:') ? ensureCategory(m.dest.slice(4), icon, 'mint') : m.dest;
+  m.dest = catId;
+  const today = new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' });
+  let n = 0;
+  for (const j of js) {
+    const p = m.products[j]; if (!p || p.saved) continue;
+    if (addItem({ title: p.name, cat: catId, img: p.img, notes: [`${p.store}${p.price ? ' · ' + p.price : ''} · visto el ${today}`, p.note, p.url].filter(Boolean).join('\n') })) { p.saved = true; n++; }
+  }
+  save(); render();
+  toast(n > 1 ? `${n} guardados en ${catName(catId)}` : `Guardado en ${catName(catId)}`, { undo: true });
+}
 function sourcesHtml(m) {
   const lk = m.links?.length ? `<div class="links">${m.links.map((x) => `<a class="btn" href="${esc(x.uri)}" target="_blank" rel="noopener">${ic('globe')}<span>${esc(x.title)}</span></a>`).join('')}</div>` : '';
   if (!m.sources?.length && !m.entry) return lk;
@@ -1164,7 +1284,8 @@ function mdLite(s) {
 function viewAsk() {
   const msgs = CHAT.map((m, i) => {
     if (m.role === 'me') return `<div class="bubble me">${esc(m.text)}</div>`;
-    const body = m.thinking ? `<span class="spin"></span> ${esc(m.status || 'Pensando…')} <span class="el muted" data-t0="${m.t0 || Date.now()}"></span>` : (m.html || mdLite(m.text)) + sourcesHtml(m);
+    const body = m.thinking ? `<span class="spin"></span> ${esc(m.status || 'Pensando…')} <span class="el muted" data-t0="${m.t0 || Date.now()}"></span>`
+      : (m.html || mdLite(m.text)) + (m.products?.length ? productsHtml(m, i) : sourcesHtml(m));
     const act = m.actions?.length
       ? m.applied ? `<div class="applied">${ic('check', 'sm')} Cambios aplicados</div>`
         : `<button class="btn primary" data-act="chatReview" data-i="${i}">Revisar y aplicar ${m.actions.length} cambio${m.actions.length > 1 ? 's' : ''}</button>`
@@ -1227,7 +1348,7 @@ function viewSettings() {
       ${getTavily() ? '<button class="btn danger" data-act="removeTavily">Quitar</button>' : ''}
     </div>
     <label class="lbl" for="whereIn">Dónde compras</label>
-    <input class="in" id="whereIn" placeholder="Ej. Guadalajara, México" value="${esc(shopWhere())}">
+    <input class="in" id="whereIn" placeholder="Ej. Santiago, Región Metropolitana, Chile" value="${esc(shopWhere())}">
     <p class="help">Para buscar tiendas que envíen ahí y precios en tu moneda.</p>
     <button class="btn" style="width:100%; margin-top:6px" data-act="saveWhere">Guardar ubicación</button>` : ''}
   </div>` : ''}
@@ -1242,7 +1363,7 @@ function viewSettings() {
     <button class="set-row danger" data-act="wipe">${ic('trash')}<span class="nm">Borrar toda la memoria</span></button>
   </div>
   <p class="help">Tu información vive solo en este teléfono. Haz un respaldo de vez en cuando y guárdalo en iCloud Drive (Archivos).</p>
-  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v3.8</p>`;
+  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v4.0</p>`;
 }
 
 function afterRender() {
@@ -1419,6 +1540,7 @@ function openItem(id) {
   if (!it) return;
   openSheet(`
     <h3>Detalle</h3>
+    ${it.img ? `<img class="it-hero" src="${esc(it.img)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}
     ${hasAI() ? `<form class="nexo-ask" data-form="itemAsk" data-id="${it.id}"><span class="nx">${SPARK}</span>
       <input class="in" id="edAsk" placeholder="Pídele un cambio a Nexo…" autocomplete="off" aria-label="Pídele un cambio a Nexo">
       <button class="btn ai sq" aria-label="Enviar a Nexo">${ic('up')}</button></form>` : ''}
@@ -1432,7 +1554,7 @@ function openItem(id) {
     <label class="lbl" for="edNotes">Notas</label>
     <textarea class="in" id="edNotes" rows="4" placeholder="Marca, talla, precio, link, quién lo mencionó…">${esc(it.notes)}</textarea>
     ${(() => { const us = [...new Set(it.notes.match(URL_RE) || [])]; return us.length ? `<div class="links">${us.map((u) => `<a class="btn" href="${esc(u)}" target="_blank" rel="noopener">${ic('link')}<span>Abrir ${esc(domainOf(u))}</span></a>`).join('')}</div>` : ''; })()}
-    <p class="help">Guardado el ${new Date(it.created).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}${it.pkey ? ' · Viene de tus datos iniciales' : ''}</p>
+    <p class="help">Guardado el ${new Date(it.created).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}${it.pkey ? ' · Viene de tus datos iniciales' : ''}</p>
     <div class="sheet-actions" style="flex-wrap:wrap">
       ${it.date ? `<button class="btn" style="flex-basis:100%" data-act="ics" data-id="${it.id}">${ic('calplus')} Añadir al Calendario</button>` : ''}
       <button class="btn danger" data-act="delItem" data-id="${it.id}">${ic('trash')} Eliminar</button>
@@ -1511,7 +1633,7 @@ async function doCapture(btn) {
   if (!r) { if (text) openReview(localClassify(text), 'Sin IA en este momento: revisa antes de guardar.', clear); return; }
   if (r.actions.length) return openReview(r.actions, r.reply, clear);
   // sin cambios: fue una pregunta → la respuesta va al chat
-  CHAT.push({ role: 'me', text: text || '(imagen)' }, { role: 'bot', text: r.reply || 'No encontré nada que guardar.', sources: r.sources, entry: r.entry, links: r.links });
+  CHAT.push({ role: 'me', text: text || '(imagen)' }, botMsg(r, { text: r.reply || 'No encontré nada que guardar.' }));
   pendingImg = null;
   go('ask');
 }
@@ -1531,7 +1653,7 @@ async function doAsk(q) {
   CHAT.push(thinking); render();
   try {
     const r = await aiCommand(q, null, history, (st) => { thinking.status = st; if (UI.tab === 'ask') render(); });
-    Object.assign(thinking, { thinking: false, text: r.reply || (r.actions.length ? 'Te propongo estos cambios.' : 'Listo.'), actions: r.actions, sources: r.sources, entry: r.entry, links: r.links });
+    Object.assign(thinking, botMsg(r, { thinking: false, text: r.reply || (r.actions.length ? 'Te propongo estos cambios.' : 'Listo.') }));
   } catch (e) {
     Object.assign(thinking, { thinking: false, text: 'Hubo un problema: ' + e.message });
   }
@@ -1543,7 +1665,7 @@ async function askAbout(prefix, input, btn) {
   const r = await runNexo(`${prefix} ${t}`, btn);
   if (!r) return;
   if (r.actions.length) { closeSheet(); openReview(r.actions, r.reply, () => { input.value = ''; }); }
-  else if (r.sources?.length || r.links?.length) { closeSheet(); input.value = ''; CHAT.push({ role: 'me', text: t }, { role: 'bot', text: r.reply, sources: r.sources, entry: r.entry, links: r.links }); go('ask'); }
+  else if (r.sources?.length || r.links?.length || r.products?.length) { closeSheet(); input.value = ''; CHAT.push({ role: 'me', text: t }, botMsg(r)); go('ask'); }
   else toast(r.reply || 'No encontré cambios que hacer', { ms: 5000 });
 }
 
@@ -1616,6 +1738,8 @@ const ACTIONS = {
   cat: (el) => go('lists', { cat: el.dataset.id, showDone: false }),
   back: () => go('lists'),
   diag: () => runDiag(),
+  saveProd: (el) => saveProducts(+el.dataset.i, [+el.dataset.j]),
+  saveAllProd: (el) => saveProducts(+el.dataset.i, CHAT[+el.dataset.i].products.map((p, j) => (p.saved ? -1 : j)).filter((j) => j >= 0)),
   saveTavily: async (el) => {
     const k = $('#tavIn').value.trim();
     if (!k) return toast('Pega tu clave de Tavily');
@@ -1693,6 +1817,9 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('[data-close]')) return closeSheet();
   const a = e.target.closest('[data-act]');
   if (a && a.dataset.act && ACTIONS[a.dataset.act]) { e.preventDefault(); ACTIONS[a.dataset.act](a); }
+});
+document.addEventListener('change', (e) => {
+  const d = e.target.closest('[data-dest]'); if (d && CHAT[+d.dataset.dest]) CHAT[+d.dataset.dest].dest = d.value;
 });
 document.addEventListener('submit', (e) => {
   const form = e.target, f = form.dataset.form; if (!f) return;
