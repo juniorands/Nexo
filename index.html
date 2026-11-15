@@ -785,7 +785,34 @@ function searchLinks(q, original) {
 const shopWhere = () => (S.profile.shopWhere || '').trim();
 const URL_RE = /https?:\/\/[^\s<>"'`)\]]+[^\s<>"'`)\].,;:!?]/g;
 const domainOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
+/* Tavily: buscador para apps de IA (plan gratis). Trae resultados con links directos; Gemini los lee después. */
+const TAVILY_STORE = 'cerebro.tavily.key';
+const getTavily = () => lsGet(TAVILY_STORE) || '';
+async function tavilySearch(query, key = getTavily()) {
+  const us = /(estados unidos|usa|eeuu|ee\.uu|united states)/i.test(shopWhere());
+  const body = { query: query.slice(0, 380), search_depth: 'basic', max_results: 8, include_answer: false, topic: 'general', country: us ? 'united states' : 'mexico' };
+  const post = (b) => gfetch('https://api.tavily.com/search', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` }, body: JSON.stringify(b) }, 25000);
+  let r = await post(body);
+  if (r.status === 400) { delete body.country; r = await post(body); }
+  if (!r.ok) {
+    let msg = ''; try { const j = await r.json(); msg = j.detail?.error || j.error || j.message || ''; } catch {}
+    const e = gErr(r.status === 401 ? 'La clave de Tavily no es válida. Revísala en Ajustes.'
+      : r.status === 432 || r.status === 433 ? 'Se acabaron las búsquedas gratis de Tavily de este mes.'
+      : r.status === 429 ? 'Demasiadas búsquedas seguidas en Tavily. Espera un minuto.'
+      : 'Tavily: ' + (msg || 'error ' + r.status), r.status === 401 ? 'key' : 'quota');
+    e.status = r.status; e.raw = msg; throw e;
+  }
+  const j = await r.json();
+  const results = (j.results || []).filter((x) => x.url);
+  if (!results.length) throw gErr('No encontré resultados en internet para eso.', 'empty');
+  return {
+    text: results.map((x, i) => `${i + 1}. ${x.title || domainOf(x.url)} — ${x.url}\n${String(x.content || '').replace(/\s+/g, ' ').slice(0, 450)}`).join('\n\n'),
+    sources: results.map((x) => ({ title: domainOf(x.url), uri: x.url })).filter((x, i, a) => a.findIndex((y) => y.title === x.title) === i).slice(0, 8),
+    entry: '', query, engine: 'tavily',
+  };
+}
 async function webSearch(query, original) {
+  if (getTavily()) return tavilySearch(query);
   const where = shopWhere();
   const body = {
     systemInstruction: { parts: [{ text: `Eres un investigador de compras y datos actuales. ${todayLine()} Busca en Google y entrega hallazgos concretos y verificables, en español.
@@ -882,7 +909,7 @@ INTERNET: ya buscaste "${web.query}". RESULTADOS:
 ${web.text}
 FUENTES:
 ${web.sources.map((x) => `- ${x.title}: ${x.uri}`).join('\n') || '(sin fuentes)'}
-Con estos resultados: responde en reply con lo más útil (mejor precio primero, tienda y precio). Si el usuario pidió guardar, armar una lista o "buscar y guardar", propone actions add en la lista que corresponda (crea la lista con add_list si no existe, ej. mascotas → icon paw). En notes pon tienda, precio con moneda, fecha de hoy y el link. Para el link usa la URL directa del producto si aparece en RESULTADOS; si no, usa la de FUENTES de esa tienda. Nunca inventes links ni precios. Deja web vacío.` : `- SÍ tienes acceso a internet con Google a través del campo web: nunca digas que no tienes acceso a internet o a información en tiempo real. Si para cumplir la petición necesitas información actual de internet (precios, ofertas, tiendas, links, disponibilidad, clima, horarios, noticias, datos de lugares) pon en web una búsqueda concreta (producto, marca, presentación, país) y deja actions vacío; reply: una frase corta. Antes de buscar usa la memoria para afinar (ej. marca de croquetas de la mascota, perfumes que le gustan). Si es solo sobre su memoria, deja web vacío.`}
+Los RESULTADOS son páginas encontradas (título — URL — extracto). Con estos resultados: responde en reply con lo más útil (mejor precio primero, tienda y precio). Si el usuario pidió guardar, armar una lista o "buscar y guardar", propone actions add en la lista que corresponda (crea la lista con add_list si no existe, ej. mascotas → icon paw). En notes pon tienda, precio con moneda, fecha de hoy y el link. Para el link usa la URL directa del producto si aparece en RESULTADOS; si no, usa la de FUENTES de esa tienda. Nunca inventes links ni precios. Deja web vacío.` : `- SÍ tienes acceso a internet con Google a través del campo web: nunca digas que no tienes acceso a internet o a información en tiempo real. Si para cumplir la petición necesitas información actual de internet (precios, ofertas, tiendas, links, disponibilidad, clima, horarios, noticias, datos de lugares) pon en web una búsqueda concreta (producto, marca, presentación, país) y deja actions vacío; reply: una frase corta. Antes de buscar usa la memoria para afinar (ej. marca de croquetas de la mascota, perfumes que le gustan). Si es solo sobre su memoria, deja web vacío.`}
 
 MEMORIA DEL USUARIO:
 ${memoryText()}`;
@@ -921,8 +948,9 @@ async function aiCommand(text, img, history = [], onStatus) {
     try { web = await webSearch(q, text || ''); }
     catch (e) {
       const links = searchLinks(q, text || '');
+      if (getTavily()) return { reply: `No pude buscar en internet: ${e.message}\n\nTe dejo la búsqueda lista:`, actions: [], links };
       if (['quota', 'key', 'bad', 'model'].includes(e.code)) {
-        return { reply: `La búsqueda automática en internet de Gemini **no está incluida en el plan gratuito** de tu clave. Para activarla, habilita la facturación de tu proyecto en Google AI Studio (incluye 5,000 búsquedas gratis al mes).\n\nMientras, te dejo la búsqueda lista:`, actions: [], links };
+        return { reply: `Para buscar en internet, agrega tu clave gratis de **Tavily** en Ajustes → Internet.\n\nMientras, te dejo la búsqueda lista:`, actions: [], links };
       }
       return { reply: 'No pude buscar en internet (' + e.message + '). Te dejo la búsqueda lista:', actions: [], links };
     }
@@ -1188,10 +1216,17 @@ function viewSettings() {
   ${key ? `<h2 class="sec">Internet</h2>
   <div class="card">
     <label style="display:flex; align-items:center; gap:12px; font-size:16px">
-      <span style="flex:1">Buscar en internet<span class="help" style="display:block; margin:2px 0 0">Nexo busca en Google cuando le pides precios, links, tiendas o datos actuales. Requiere facturación activa en tu proyecto de Google AI Studio (5,000 búsquedas gratis al mes); sin ella, Nexo te deja la búsqueda lista para abrir.</span></span>
+      <span style="flex:1">Buscar en internet<span class="help" style="display:block; margin:2px 0 0">Nexo busca cuando le pides precios, links, tiendas o datos actuales.</span></span>
       <input type="checkbox" data-act="webToggle" ${webOn() ? 'checked' : ''} style="width:26px;height:26px;accent-color:var(--mint)">
     </label>
-    ${webOn() ? `<label class="lbl" for="whereIn">Dónde compras</label>
+    ${webOn() ? `<label class="lbl" for="tavIn">Clave de Tavily ${getTavily() ? '<span style="color:var(--mint); text-transform:none; letter-spacing:0">· conectada</span>' : ''}</label>
+    <input class="in" id="tavIn" type="password" placeholder="tvly-…" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(getTavily())}">
+    ${getTavily() ? '' : `<p class="help">Gratis y sin tarjeta: entra a <a class="lnk" href="https://app.tavily.com" target="_blank" rel="noopener">app.tavily.com</a>, crea tu cuenta y copia tu API key (empieza con <b>tvly-</b>).</p>`}
+    <div style="display:flex; gap:10px; margin-top:8px">
+      <button class="btn primary" style="flex:1" data-act="saveTavily">${getTavily() ? 'Guardar y probar' : 'Conectar Tavily'}</button>
+      ${getTavily() ? '<button class="btn danger" data-act="removeTavily">Quitar</button>' : ''}
+    </div>
+    <label class="lbl" for="whereIn">Dónde compras</label>
     <input class="in" id="whereIn" placeholder="Ej. Guadalajara, México" value="${esc(shopWhere())}">
     <p class="help">Para buscar tiendas que envíen ahí y precios en tu moneda.</p>
     <button class="btn" style="width:100%; margin-top:6px" data-act="saveWhere">Guardar ubicación</button>` : ''}
@@ -1207,7 +1242,7 @@ function viewSettings() {
     <button class="set-row danger" data-act="wipe">${ic('trash')}<span class="nm">Borrar toda la memoria</span></button>
   </div>
   <p class="help">Tu información vive solo en este teléfono. Haz un respaldo de vez en cuando y guárdalo en iCloud Drive (Archivos).</p>
-  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v3.7</p>`;
+  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v3.8</p>`;
 }
 
 function afterRender() {
@@ -1254,7 +1289,7 @@ async function runDiag() {
     const r = await gemini({ system: commandSystem(), parts: [{ text: '¿Qué tengo pendiente?' }], schema: CMD_SCHEMA });
     return `OK · ${String(r.reply || '').slice(0, 60)}`;
   });
-  if (webOn()) await step('Búsqueda en Google', async () => {
+  if (webOn()) await step(getTavily() ? 'Búsqueda en internet (Tavily)' : 'Búsqueda en Google (Gemini)', async () => {
     const w = await webSearch('precio perfume Carolina Herrera Good Girl 80ml', 'prueba');
     return `${w.sources.length} fuentes · ${w.text.trim().slice(0, 80)}`;
   });
@@ -1581,6 +1616,14 @@ const ACTIONS = {
   cat: (el) => go('lists', { cat: el.dataset.id, showDone: false }),
   back: () => go('lists'),
   diag: () => runDiag(),
+  saveTavily: async (el) => {
+    const k = $('#tavIn').value.trim();
+    if (!k) return toast('Pega tu clave de Tavily');
+    setBusy(el, true, 'Probando…');
+    try { await tavilySearch('perfume Carolina Herrera Good Girl precio', k); lsSet(TAVILY_STORE, k); toast('Tavily conectado: Nexo ya busca en internet'); render(); }
+    catch (e) { toast(e.message, { ms: 4500 }); setBusy(el, false); }
+  },
+  removeTavily: () => { if (!confirm('¿Quitar la clave de Tavily de este teléfono?')) return; lsDel(TAVILY_STORE); render(); },
   closeSheet: () => closeSheet(),
   toggleDone: () => { UI.showDone = !UI.showDone; render(); },
   webToggle: (el) => { lsSet(WEB_STORE, el.checked ? 'on' : 'off'); toast(el.checked ? 'Búsqueda en internet activada' : 'Búsqueda en internet desactivada'); render(); },
