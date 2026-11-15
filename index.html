@@ -228,7 +228,16 @@ label.lbl{display:block; font-size:12px; font-weight:600; color:var(--muted); ma
 .cat-row:last-child{border-bottom:0}
 .cat-row .em{width:38px; height:38px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex:none}
 .cat-row .em.t-dark{background:var(--surface2)}
-.cat-row .nm{flex:1; font-size:16px}
+.cat-row .nm{flex:1; font-size:16px; min-width:0}
+.cat-row .nm .sub{display:block; font-size:13px; color:var(--muted); margin-top:2px}
+.org{margin-top:14px; padding:12px 14px}
+.org-h{display:flex; align-items:center; gap:8px; font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:600; padding-bottom:4px}
+.org-h .ic{color:var(--mint)}
+.org .btn.ai{margin-top:10px}
+.org-btn{margin-top:14px; color:var(--violet-l)}
+.org-btn .ic{color:var(--violet-l)}
+.fu{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px}
+.fu-chip{font-size:14px; padding:8px 13px; border-color:rgba(138,247,149,.35); color:var(--mint)}
 .cat-row .ct{color:var(--muted); font-size:15px}
 .chev{color:var(--faint)}
 .add-row{display:flex; gap:8px; margin:12px 0 14px}
@@ -491,7 +500,7 @@ const ARCS = '<svg class="arcs" viewBox="0 0 180 120" fill="none" aria-hidden="t
   [30, 55, 80, 105, 130, 155].map((r, i) => `<path d="M${180 - r} 0A${r} ${r} 0 0 0 180 ${r}" stroke="${i === 2 ? '#8af795' : '#6a00ff'}" stroke-width="1.2"/>`).join('') + '</svg>';
 
 /* ============================== toast + deshacer ============================== */
-let toastT, UNDO = null;
+let toastT, UNDO = [];
 function toast(msg, opt = {}) {
   const t = $('#toast');
   t.innerHTML = `<span>${esc(msg)}</span>${opt.undo ? '<button data-act="undo">Deshacer</button>' : ''}`;
@@ -499,11 +508,13 @@ function toast(msg, opt = {}) {
   t.classList.add('show');
   clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), opt.undo ? 6000 : (opt.ms || 2600));
 }
-function snapshot() { UNDO = JSON.stringify(S); }
+/* Deshacer guarda los últimos 20 pasos (no solo el último). */
+function snapshot() { UNDO.push(JSON.stringify(S)); if (UNDO.length > 20) UNDO.shift(); }
 function undo() {
-  if (!UNDO) return;
-  S = JSON.parse(UNDO); UNDO = null; save(); render();
-  $('#toast').classList.remove('show'); toast('Listo, lo regresé como estaba');
+  const prev = UNDO.pop();
+  if (!prev) return toast('No hay nada más que deshacer');
+  S = JSON.parse(prev); save(); render();
+  $('#toast').classList.remove('show'); toast(UNDO.length ? 'Deshecho. Puedes seguir deshaciendo' : 'Listo, lo regresé como estaba', UNDO.length ? { undo: true } : {});
 }
 function setBusy(btn, on, label) {
   if (!btn) return;
@@ -526,7 +537,47 @@ const DEFAULT_CATS = [
 function freshData() {
   return { v: 3, onboarded: false, profile: { spouse: 'Maru', kids: 'Samantha', shopWhere: 'Santiago, Región Metropolitana, Chile' }, cats: DEFAULT_CATS.map((c) => ({ ...c })), items: [] };
 }
+/* Clave para comparar nombres sin importar tildes, mayúsculas, plurales ni "de/la/para". */
+const GSTOP = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'para', 'y', 'en', 'mi', 'mis', 'a']);
+const gkey = (s) => norm(s).replace(/[^a-z0-9]+/g, ' ').split(' ').filter((w) => w && !GSTOP.has(w)).map((w) => (w.length > 4 ? w.replace(/(es|s)$/, '') : w)).join(' ');
+/* Al abrir: arregla datos rotos para que nada se pierda ni se duplique. */
+function repairData(d) {
+  const seenC = new Set();
+  d.cats = d.cats.filter((c) => c && typeof c === 'object' && c.id && !seenC.has(c.id) && seenC.add(c.id));
+  for (const sys of ['perfil', 'notas']) if (!d.cats.some((c) => c.id === sys)) d.cats.push({ ...DEFAULT_CATS.find((c) => c.id === sys) });
+  d.cats.forEach((c) => {
+    c.name = String(c.name || 'Sin nombre').trim().slice(0, 40) || 'Sin nombre';
+    c.projs = [...new Set((Array.isArray(c.projs) ? c.projs : []).map((g) => String(g || '').trim().replace(/\s+/g, ' ')).filter((g) => g && gkey(g) !== 'general'))];
+  });
+  const ids = new Set(d.cats.map((c) => c.id)), seenI = new Set();
+  d.items = d.items.filter((i) => i && typeof i === 'object' && String(i.title || '').trim());
+  for (const i of d.items) {
+    if (!i.id || seenI.has(i.id)) i.id = uid();
+    seenI.add(i.id);
+    if (!ids.has(i.cat)) i.cat = 'notas';
+    i.title = String(i.title).trim(); i.notes = String(i.notes || ''); i.date = isYmd(i.date) ? i.date : '';
+    if (i.checks && !Array.isArray(i.checks)) delete i.checks;
+    if (i.checks) i.checks = i.checks.filter((c) => c && String(c.t || '').trim()).map((c) => ({ id: c.id || uid(), t: String(c.t).trim(), qty: String(c.qty || ''), url: /^https?:\/\//.test(c.url || '') ? c.url : '', price: String(c.price || ''), done: !!c.done }));
+    const g = String(i.group || '').trim().replace(/\s+/g, ' ');
+    if (!g || gkey(g) === 'general') delete i.group; else i.group = g;
+    i.created = +i.created || Date.now(); i.updated = +i.updated || i.created;
+  }
+  // Variantes del mismo proyecto ("Útiles kinder 2027" / "Utiles Kinder 2027") quedan como uno solo.
+  for (const c of d.cats) {
+    const canon = new Map();
+    for (const g of c.projs) if (!canon.has(gkey(g))) canon.set(gkey(g), g);
+    c.projs = [...canon.values()];
+    for (const i of d.items) {
+      if (i.cat !== c.id || !i.group) continue;
+      const k = gkey(i.group);
+      if (!canon.has(k)) { canon.set(k, i.group); c.projs.push(i.group); }
+      i.group = canon.get(k);
+    }
+  }
+  return d;
+}
 function migrate(d) {
+  repairData(d);
   // v1 → v2: iconos de línea en vez de emoji, colores editables, nombres de la familia
   const def = Object.fromEntries(DEFAULT_CATS.map((c) => [c.id, c]));
   d.cats.forEach((c, i) => {
@@ -540,7 +591,7 @@ function migrate(d) {
   if (!d.profile.spouse) d.profile.spouse = 'Maru';
   if (!d.profile.kids) d.profile.kids = 'Samantha';
   if (!d.profile.shopWhere || ((d.v || 0) < 3 && /m[eé]xico|guadalajara/i.test(d.profile.shopWhere))) d.profile.shopWhere = 'Santiago, Región Metropolitana, Chile';
-  d.v = 3;
+  d.v = 4;
   return d;
 }
 function load() {
@@ -572,7 +623,7 @@ function addItem(o) {
   };
   if (!it.title) return null;
   if (TYPES.includes(o.type)) it.type = o.type;
-  if (String(o.group || '').trim()) it.group = String(o.group).trim().slice(0, 60);
+  const g = ensureProj(it.cat, o.group); if (g) it.group = g;
   const ck = cleanChecks(o.checks); if (ck.length) { it.checks = ck; if (!it.type) it.type = 'lista'; }
   if (/^https?:\/\//.test(o.url || '')) it.url = o.url;
   if (o.price) it.price = String(o.price).slice(0, 30);
@@ -602,8 +653,56 @@ const shopLink = (t) => `https://www.google.com/search?tbm=shop&gl=${shopCountry
 const itemUrl = (it) => it.url || (String(it.notes || '').match(/https?:\/\/[^\s<>"']+/) || [])[0] || '';
 function findCat(value) {
   if (!value) return null;
+  value = String(value).replace(/^categor[ií]a\s*(id)?:?\s*/i, '').trim();
   if (cat(value)) return cat(value);
-  return S.cats.find((c) => norm(c.name) === norm(value)) || null;
+  const k = gkey(value);
+  return S.cats.find((c) => norm(c.name) === norm(value)) || (k ? S.cats.find((c) => gkey(c.name) === k) : null) || null;
+}
+/* ---------- Proyectos: existen aunque estén vacíos y no se duplican ---------- */
+function projList(catId) {
+  const c = cat(catId); if (!c) return [];
+  const reg = c.projs || [];
+  const used = [...new Set(S.items.filter((i) => i.cat === catId && i.group).map((i) => i.group))];
+  return [...reg, ...used.filter((g) => !reg.includes(g))];
+}
+function canonProj(catId, name) {
+  name = String(name || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+  if (!name || gkey(name) === 'general' || /^(none|ninguno|sin proyecto)$/i.test(name)) return '';
+  const k = gkey(name);
+  return projList(catId).find((g) => gkey(g) === k) || name;
+}
+function ensureProj(catId, name) {
+  const g = canonProj(catId, name), c = cat(catId);
+  if (g && c) { c.projs ||= []; if (!c.projs.includes(g)) c.projs.push(g); }
+  return g;
+}
+/* Si un proyecto ya existe en otra categoría, lo nuevo de ese proyecto va allá. */
+const projHome = (name) => { const k = gkey(name); return k ? S.cats.find((c) => projList(c.id).some((g) => gkey(g) === k))?.id || '' : ''; };
+function renameProj(catId, old, name, toCat) {
+  const c = cat(catId), d = cat(toCat) || c; if (!c) return '';
+  const same = d === c;
+  const target = canonProj(d.id, name) || old;
+  for (const i of S.items) if (i.cat === catId && gkey(i.group || '') === gkey(old)) { i.group = target; i.cat = d.id; i.updated = Date.now(); }
+  c.projs ||= []; d.projs ||= [];
+  const k = c.projs.indexOf(old);
+  if (same && k >= 0 && !c.projs.includes(target)) c.projs[k] = target;
+  else { c.projs = c.projs.filter((g) => g !== old); if (!d.projs.includes(target)) d.projs.push(target); }
+  return target;
+}
+function removeProj(catId, g, withItems) {
+  const c = cat(catId); if (!c) return;
+  if (withItems) S.items = S.items.filter((i) => !(i.cat === catId && (i.group || '') === g));
+  else for (const i of S.items) if (i.cat === catId && i.group === g) { delete i.group; i.updated = Date.now(); }
+  c.projs = (c.projs || []).filter((x) => x !== g);
+}
+/* Combina dos categorías: los elementos y proyectos pasan a la de destino. */
+function mergeCats(from, into) {
+  const a = cat(from), b = cat(into); if (!a || !b || a === b) return 0;
+  let n = 0;
+  for (const g of projList(a.id)) ensureProj(b.id, g);
+  for (const i of S.items) if (i.cat === a.id) { i.cat = b.id; if (i.group) i.group = ensureProj(b.id, i.group); i.updated = Date.now(); n++; }
+  if (!a.system) S.cats = S.cats.filter((x) => x !== a); else a.projs = [];
+  return n;
 }
 function ensureCategory(value, icon, color) {
   if (!value) return 'notas';
@@ -612,9 +711,10 @@ function ensureCategory(value, icon, color) {
   S.cats.push({ id, name: String(value).slice(0, 40), icon: LIST_ICONS.includes(icon) ? icon : 'folder', color: COLORS.includes(color) ? color : 'dark' });
   return id;
 }
-function removeList(id) {
+function removeList(id, to = 'notas', withItems = false) {
   const c = cat(id); if (!c || c.system) return;
-  S.items.forEach((i) => { if (i.cat === id) i.cat = 'notas'; });
+  if (withItems) S.items = S.items.filter((i) => i.cat !== id);
+  else mergeCats(id, cat(to) ? to : 'notas');
   S.cats = S.cats.filter((x) => x.id !== id);
 }
 
@@ -1080,7 +1180,7 @@ async function groqError(r) {
 }
 async function groqRaw(model, key, messages, ms) {
   // Sin "modo JSON": Groq no garantiza que funcione junto con la respuesta por partes. El JSON se pide en el mensaje y se valida al recibirlo.
-  const body = { model, messages, temperature: 0.3, stream: true, max_completion_tokens: 4096 };
+  const body = { model, messages, temperature: 0.2, stream: true, max_completion_tokens: 2600 };
   if (/gpt-oss/.test(model)) body.reasoning_effort = 'low';
   if (/qwen3/.test(model)) body.reasoning_effort = 'none';
   let ctl;
@@ -1112,6 +1212,8 @@ async function groqRaw(model, key, messages, ms) {
     if (e.code === 'model') { const c = getCool(); c[model] = Date.now() + 24 * 3600e3; lsSet(COOL_STORE, JSON.stringify(c)); }
     throw e;
   }
+  // Pedido muy grande para el cupo gratis: se pide una respuesta más corta al mismo modelo antes de cambiar.
+  if (r.status === 413 && body.max_completion_tokens > 1200) { body.max_completion_tokens = 1200; r = await post(); }
   if (r.status === 429 || r.status === 413) { const e = await groqError(r); coolDown(model, e); throw e; }
   if (r.status >= 500) { await sleep(1000); r = await post(); }
   if (!r.ok) throw await groqError(r);
@@ -1156,7 +1258,9 @@ async function groqJSON({ system, parts, history = [], ms = 30000, max = 4 }) {
     return imgs.length ? [{ type: 'text', text: t || 'Extrae la información importante de esta imagen.' }, ...imgs.map((p) => ({ type: 'image_url', image_url: { url: `data:${p.inlineData.mimeType};base64,${p.inlineData.data}` } }))] : t;
   };
   const messages = [{ role: 'system', content: system + '\n\nResponde SIEMPRE con un único objeto JSON válido, sin texto fuera del JSON.' },
-    ...history.map((h) => ({ role: h.role === 'model' ? 'assistant' : 'user', content: content(h.parts || []) })),
+    ...history.map((h) => h.role === 'model'
+      ? { role: 'assistant', content: JSON.stringify({ reply: (h.parts || []).map((p) => p.text || '').join('\n').slice(0, 900), actions: [] }) }
+      : { role: 'user', content: (h.parts || []).map((p) => p.text || '').join('\n').slice(0, 1500) }),
     { role: 'user', content: content(parts) }];
   return parseJSON((await groqGenerate(messages, { ms, max: vision ? 2 : max, vision })).txt);
 }
@@ -1367,7 +1471,7 @@ No inventes URLs ni precios: solo los que veas en los resultados.` }] },
 }
 
 /* Nexo entiende comandos: guardar, editar, mover, completar, borrar, organizar listas o responder */
-const OPS = ['add', 'update', 'done', 'undone', 'delete', 'add_list', 'update_list', 'delete_list'];
+const OPS = ['add', 'update', 'done', 'undone', 'delete', 'add_list', 'update_list', 'delete_list', 'merge_list', 'update_project'];
 const ACTION_SCHEMA = {
   type: 'OBJECT',
   properties: {
@@ -1388,30 +1492,83 @@ function whoLine() {
   const n = S.profile.name, e = spouse(), k = (S.profile.kids || '').trim();
   return `El usuario se llama ${n || '(sin nombre)'}${e ? `; su esposa se llama ${e}` : ''}${k ? `; hijos: ${k}` : ''}. ${geoOn() && getGeo()?.comuna ? `Está ahora en ${shopWhere()}` : `Vive en ${shopWhere()}`} (moneda ${shopCountry().cur}). Para despachos y compras, considera su comuna.`;
 }
-function memoryText() {
-  const out = S.cats.map((c) => {
-    const its = S.items.filter((i) => i.cat === c.id);
-    const head = `## ${c.name} [categoría id:${c.id}${c.system ? ', fija' : ''}]`;
-    if (!its.length) return head + '\n(vacía)';
-    return head + '\n' + its.map((i) =>
-      `- [id:${i.id}] (${itemType(i)}${i.group ? ', proyecto: ' + i.group : ''}) ${i.done ? '[hecho] ' : ''}${i.title}` +
-      (i.checks?.length ? ` — ítems: ${i.checks.map((c) => (c.done ? '[x] ' : '') + c.t).join('; ').slice(0, 600)}` : '') +
-      (i.price || i.url ? ` — ${[i.price, i.store, i.url].filter(Boolean).join(' · ')}` : '') +
-      (i.date ? ` (fecha: ${i.date}${i.repeat === 'yearly' ? ', cada año' : ''})` : '') +
-      (i.notes ? ` — ${i.notes.replace(/\s*\n\s*/g, ' / ')}` : '') +
-      ` {guardado ${ymd(new Date(i.created))}}`
-    ).join('\n');
-  });
-  return out.join('\n\n');
+/* La memoria que ve la IA: completa si cabe; si no, lo relacionado con el mensaje va con detalle y el resto resumido.
+   Así nunca supera el límite gratis de Groq (era una causa de errores al tener mucha información guardada). */
+const MEM_MAX = 7000;
+const MSTOP = new Set(['que', 'cual', 'cuales', 'como', 'para', 'por', 'los', 'las', 'del', 'una', 'uno', 'con', 'tengo', 'mis', 'hay', 'esta', 'este', 'donde', 'cuando', 'quien', 'le', 'me', 'mi', 'mas', 'puedo', 'podria', 'cuanto', 'cuanta', 'hace', 'algo', 'sobre', 'todo', 'nexo', 'dame', 'quiero', 'necesito']);
+const keyWords = (q) => [...new Set(norm(q).split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !MSTOP.has(w)).map((w) => (w.length > 4 ? w.replace(/(es|s)$/, '') : w)))].slice(0, 25);
+function relScore(i, words) {
+  let s = 0;
+  const h = norm(`${i.title} ${i.group || ''} ${catName(i.cat)} ${i.notes} ${(i.checks || []).map((c) => c.t).join(' ')}`);
+  for (const w of words) if (h.includes(w)) s += 3;
+  const d = effectiveDate(i);
+  if (d && !i.done && d - today0() <= 30 * DAY && d >= today0() - 7 * DAY) s += 2;
+  if (i.cat === 'perfil') s += 2;
+  if (Date.now() - i.created < 3 * DAY) s += 1;
+  if (i.done) s -= 1;
+  return s;
+}
+function itemLine(i, full) {
+  let s = `- [id:${i.id}] (${itemType(i)}${i.group ? ', proyecto: ' + i.group : ''}) ${i.done ? '[hecho] ' : ''}${i.title}` + (i.date ? ` (fecha: ${i.date}${i.repeat === 'yearly' ? ', cada año' : ''})` : '');
+  if (!full) return s + (i.checks?.length ? ` — ${i.checks.length} ítems` : '');
+  return s + (i.checks?.length ? ` — ítems: ${i.checks.map((c) => (c.done ? '[x] ' : '') + c.t + (c.qty ? ' x' + c.qty : '')).join('; ').slice(0, 600)}` : '') +
+    (i.price || i.url ? ` — ${[i.price, i.store, i.url].filter(Boolean).join(' · ')}` : '') +
+    (i.notes ? ` — ${i.notes.replace(/\s*\n\s*/g, ' / ').slice(0, 400)}` : '') +
+    ` {guardado ${ymd(new Date(i.created))}}`;
+}
+let FOCUS = '';
+function memoryText(focus = FOCUS, { max = MEM_MAX, onlyCat = '', compact = false } = {}) {
+  const cats = onlyCat ? S.cats.filter((c) => c.id === onlyCat) : S.cats;
+  const its = S.items.filter((i) => cats.some((c) => c.id === i.cat));
+  const build = (line) => cats.map((c) => {
+    const projs = projList(c.id);
+    const head = `## ${c.name} [categoría id:${c.id}${c.system ? ', fija' : ''}]${projs.length ? ` — proyectos: ${projs.join(' | ')}` : ''}`;
+    const mine = its.filter((i) => i.cat === c.id);
+    if (!mine.length) return head + '\n(vacía)';
+    const lines = mine.map(line).filter(Boolean), hidden = mine.length - lines.length;
+    return head + (lines.length ? '\n' + lines.join('\n') : '') + (hidden ? `\n(+${hidden} elemento${hidden > 1 ? 's' : ''} más)` : '');
+  }).join('\n\n');
+  if (!compact) { const all = build((i) => itemLine(i, true)); if (all.length <= max) return all; }
+  const words = keyWords(focus);
+  const ranked = [...its].sort((a, b) => relScore(b, words) - relScore(a, words));
+  const full = new Set(), short = new Set();
+  let budget = max - cats.length * 110;
+  for (const i of ranked) {
+    const lf = itemLine(i, true).length + 1, ls = itemLine(i, false).length + 1;
+    if (!compact && relScore(i, words) > 0 && budget - lf > max * 0.3) { full.add(i.id); budget -= lf; }
+    else if (budget - ls > 0) { short.add(i.id); budget -= ls; }
+  }
+  return build((i) => (full.has(i.id) ? itemLine(i, true) : short.has(i.id) ? itemLine(i, false) : ''));
+}
+/* Categorías que probablemente tienen que ver con el mensaje (para que la IA conecte la respuesta con la app). */
+function relatedCats(text) {
+  const words = keyWords(text); if (!words.length) return [];
+  return S.cats.map((c) => {
+    const name = gkey(c.name + ' ' + projList(c.id).join(' '));
+    let sc = words.filter((w) => name.includes(w)).length * 4;
+    sc += S.items.filter((i) => i.cat === c.id && relScore(i, words) >= 3).length;
+    return [c, sc];
+  }).filter((x) => x[1] >= 3).sort((a, b) => b[1] - a[1]).slice(0, 2).map((x) => x[0]);
 }
 function commandSystem(web = null) {
   return `Eres Nexo, el "segundo cerebro" personal del usuario. ${whoLine()} ${todayLine()}
-El usuario te escribe para: (a) guardar información nueva, (b) cambiar, mover, completar o borrar cosas que ya guardó, (c) organizar sus categorías, o (d) preguntarte algo sobre su memoria. A veces comparte correos o capturas de pantalla.
+El usuario te escribe para: (a) guardar información nueva, (b) cambiar, mover, completar o borrar cosas que ya guardó, (c) organizar sus categorías, o (d) preguntarte algo (sobre su memoria, un cálculo, un consejo). A veces comparte correos, PDFs o capturas.
+
+CÓMO ES NEXO (la app): Categorías (ej. Colegio, Mascotas) → dentro de cada una, Proyectos (ej. Colegio › Útiles Kinder 2027) → dentro de cada proyecto, los elementos por tipo (recordatorios con fecha, listas con checks, compras, productos, tareas, notas). Todo lo que respondas debe aterrizar en la app: dónde está, dónde guardarlo o cómo ordenarlo.
+
+CONVERSACIÓN (muy importante):
+- Si el mensaje se relaciona con una categoría o proyecto que ya existe, respóndelo con lo guardado ahí, di dónde está (Categoría › Proyecto), pon su id en focus y cierra con UNA pregunta concreta sobre esa categoría que la mantenga al día (si falta algo, si guarda el resultado, si le pone fecha o recordatorio, si la ordena en un proyecto).
+- Si es un tema nuevo que valdría la pena tener en Nexo, pregunta si quiere guardarlo y propón dónde (categoría y proyecto).
+- Si te falta un dato clave para hacerlo bien, haz UNA pregunta corta y deja actions vacío (no inventes).
+- Si notas una categoría desordenada (muchos elementos sin proyecto, temas mezclados, duplicados), menciónalo en una frase y ofrece ordenarla.
+- followups: 2 o 3 respuestas cortas (máx 6 palabras) que el usuario podría tocar para seguir, escritas como si las dijera él (ej. "Sí, guárdalo en Mascotas", "Recuérdame comprar el 1 de dic", "Ordena Colegio en proyectos"). Solo cosas que Nexo puede hacer.
 
 Tu estilo: directo, práctico y con energía de alguien que construye. Piensas como alguien que usa la IA para ganar tiempo y enfocarse en lo que importa: la familia, el trabajo creativo y avanzar. Nada de relleno; prioriza lo accionable. Si ves algo útil (una fecha que se acerca, un regalo pendiente, algo vencido), sugiérelo de forma proactiva.
 
 Responde con JSON:
 - reply: respuesta breve en español, cálida y práctica. Usa "- " para viñetas y **negritas** para lo clave. Si propones cambios, resume en una frase qué vas a hacer. Si es una pregunta, respóndela SOLO con base en la memoria (puedes razonar y recomendar, citando de dónde sale); si el dato no está, dilo y sugiere qué agregar.
+- focus: ids de las categorías de las que habla tu respuesta (máx 2; vacío si ninguna).
+- followups: 2 o 3 respuestas sugeridas (ver CONVERSACIÓN).
 - actions: lista de cambios a proponer (vacía si solo es una pregunta). Operaciones:
   · add: elemento nuevo → title, category, type, group, date, notes, repeat, checks, url, price, store.
   · update: editar un elemento existente → id (el [id:...] de la memoria) + SOLO los campos que cambian. Usa category para moverlo a otra categoría y group para moverlo de grupo. checks en update AGREGA esos ítems a la lista existente. date "none" quita la fecha. notes reemplaza las notas completas (conserva lo anterior si sigue siendo útil). repeat "yearly" o "none".
@@ -1420,6 +1577,8 @@ Responde con JSON:
   · add_list: CATEGORÍA nueva → name, icon, color.
   · update_list: renombrar o cambiar icono/color de una categoría → id de la categoría + name/icon/color.
   · delete_list: borrar una categoría (sus elementos pasan a Notas) → id. Nunca borres categorías fijas.
+  · merge_list: combinar dos categorías que son lo mismo → id (la que desaparece) + into (la que queda).
+  · update_project: renombrar un proyecto o moverlo entero a otra categoría → category (id actual) + group (nombre actual) + name (nombre nuevo) y/o into (id de la categoría destino).
 
 Reglas:
 - category: id de una categoría existente, o el nombre de una categoría nueva (en ese caso agrega también un add_list con su icon y color).
@@ -1456,14 +1615,33 @@ ${web.near ? `- PEDIDO DE LUGARES CERCANOS. El usuario está AHORA en ${shopWher
 - Deja web vacío.` : `- SÍ tienes acceso a internet con Google a través del campo web: nunca digas que no tienes acceso a internet o a información en tiempo real. Si para cumplir la petición necesitas información actual de internet (precios, ofertas, tiendas, links, disponibilidad, clima, horarios, noticias, datos de lugares) pon en web una búsqueda concreta (producto, marca, presentación, país) y deja actions vacío; reply: una frase corta. Antes de buscar usa la memoria para afinar (ej. marca de croquetas de la mascota, perfumes que le gustan). Si es solo sobre su memoria, deja web vacío.`}
 
 FORMATO EXACTO (nombres de campo en inglés, tal cual):
-{"reply":"…","web":"","products":[],"actions":[
+{"reply":"…","focus":["colegio"],"followups":["Recuérdame la venta el 30 nov","Agrega lo que falta"],"web":"","products":[],"actions":[
  {"op":"add","type":"evento","title":"Venta en Verde textos Santillana","category":"colegio","group":"Textos 2027","date":"2026-12-01","notes":"07:30 a 14:00 en el colegio · 28% de descuento"},
  {"op":"add","type":"compras","title":"Útiles Kinder 2027","category":"colegio","group":"Textos 2027","checks":[{"text":"Cuaderno college cuadro grande","qty":"3"},{"text":"Lápices de colores 12"}]}]}
 - Nexo aplica las actions AL INSTANTE (el usuario puede deshacer). Si el usuario pide guardar, anotar, organizar, mover, completar, planificar o pega un correo/mensaje con información, actions NO puede ir vacío.
 - Nunca digas en reply que guardaste, moviste u organizaste algo que no esté en actions. En reply resume qué guardas y dónde.
 
+${(() => { const rc = relatedCats(FOCUS); return rc.length ? `PISTA: este mensaje parece tener relación con ${rc.map((c) => `"${c.name}" [id:${c.id}]${projList(c.id).length ? ` (proyectos: ${projList(c.id).join(', ')})` : ''}`).join(' y ')}. Úsalo para conectar tu respuesta con la app.\n` : ''; })()}
 MEMORIA DEL USUARIO:
 ${memoryText()}`;
+}
+/* Modo "Ordenar con Nexo": diagnostica y propone; el usuario revisa antes de aplicar. */
+function organizeSystem(catId) {
+  return `${commandSystem().split('MEMORIA DEL USUARIO:')[0]}
+MODO ORDENAR: el usuario quiere mejorar la organización de ${catId ? `la categoría "${catName(catId)}" [id:${catId}]` : 'sus categorías en Nexo'}.
+1) Diagnostica la estructura: elementos sueltos sin proyecto, proyectos que son el mismo tema con nombres distintos, elementos en la categoría equivocada, categorías vacías o duplicadas, tipos mal puestos (ej. una lista guardada como recordatorio), completados que estorban.
+2) Propón cambios concretos en actions (máx 25) usando SOLO ids que existen en la memoria:
+  · update con group para agrupar elementos sueltos en proyectos (reutiliza proyectos que ya existen; crea pocos y con nombres claros y cortos).
+  · update con category para mover lo mal ubicado; update con type para corregir tipos.
+  · update_project para renombrar un proyecto o moverlo entero.
+  · update_list para renombrar una categoría; merge_list para combinar dos que son lo mismo; delete_list solo para categorías vacías que no se usan.
+  Nunca borres elementos.
+3) reply: diagnóstico en 2 a 4 viñetas cortas (qué está desordenado y qué propones) y termina con 1 o 2 preguntas sobre cómo prefiere organizarse (ej. "¿Prefieres Colegio por año escolar o por tema?", "¿Quieres una categoría aparte para Mascotas?"). El usuario revisa los cambios antes de aplicarlos.
+4) followups: 2 o 3 respuestas cortas a tus preguntas.
+Si ya está bien ordenado, dilo, deja actions vacío y sugiere una mejora opcional.
+
+MEMORIA DEL USUARIO:
+${catId ? memoryText('', { onlyCat: catId, max: 5500 }) + '\n\nOTRAS CATEGORÍAS: ' + S.cats.filter((c) => c.id !== catId).map((c) => `${c.name} [id:${c.id}]`).join(', ') : memoryText('', { compact: true, max: 6000 })}`;
 }
 /* La IA a veces usa otros nombres de campo ("operation", "lista", "fecha"…): se traducen en vez de descartarlos. */
 const OP_ALIAS = { agregar: 'add', anadir: 'add', crear: 'add', create: 'add', new: 'add', insert: 'add', guardar: 'add', save: 'add', add_item: 'add', additem: 'add',
@@ -1471,7 +1649,9 @@ const OP_ALIAS = { agregar: 'add', anadir: 'add', crear: 'add', create: 'add', n
   completar: 'done', complete: 'done', check: 'done', marcar: 'done', mark_done: 'done', hecho: 'done', uncheck: 'undone', pendiente: 'undone',
   eliminar: 'delete', borrar: 'delete', remove: 'delete', delete_item: 'delete',
   crear_lista: 'add_list', new_list: 'add_list', create_list: 'add_list', addlist: 'add_list', lista_nueva: 'add_list',
-  editar_lista: 'update_list', rename_list: 'update_list', borrar_lista: 'delete_list', remove_list: 'delete_list', eliminar_lista: 'delete_list' };
+  editar_lista: 'update_list', rename_list: 'update_list', borrar_lista: 'delete_list', remove_list: 'delete_list', eliminar_lista: 'delete_list',
+  merge: 'merge_list', merge_lists: 'merge_list', merge_categories: 'merge_list', merge_category: 'merge_list', combinar: 'merge_list', combinar_categorias: 'merge_list', fusionar: 'merge_list',
+  rename_project: 'update_project', move_project: 'update_project', rename_group: 'update_project', update_group: 'update_project', mover_proyecto: 'update_project', renombrar_proyecto: 'update_project', editar_proyecto: 'update_project' };
 function normAction(a) {
   if (!a || typeof a !== 'object') return null;
   const g = (...ks) => { for (const k of ks) if (a[k] !== undefined && a[k] !== null && a[k] !== '') return a[k]; return ''; };
@@ -1487,11 +1667,12 @@ function normAction(a) {
   if (dm) date = `${dm[3]}-${dm[2].padStart(2, '0')}-${dm[1].padStart(2, '0')}`;
   if (/^\d{4}-\d{2}-\d{2}T/.test(date)) date = date.slice(0, 10);
   const notes = g('notes', 'notas', 'note', 'nota', 'details', 'detalles', 'descripcion', 'description');
-  return { ...a, op, id: g('id', 'item_id', 'list_id', 'id_lista'), title: title || (op === 'add' ? g('name', 'nombre') : ''),
+  return { ...a, op, id: g('id', 'item_id', 'list_id', 'id_lista', 'from', 'origen'), title: title || (op === 'add' ? g('name', 'nombre') : ''),
     category: g('category', 'categoria', 'list', 'lista', 'category_id', 'categoria_id', 'list_name', 'nombre_lista', 'to', 'destino'),
     date, notes: Array.isArray(notes) ? notes.join('\n') : notes, name: g('name', 'nombre', 'list_name', 'nombre_lista'), repeat: g('repeat', 'repetir'),
     type: itype, group: g('group', 'grupo', 'section', 'seccion', 'subcategory', 'subcategoria', 'subtema'), checks,
-    url: g('url', 'link', 'enlace'), price: g('price', 'precio'), store: g('store', 'tienda') };
+    url: g('url', 'link', 'enlace'), price: g('price', 'precio'), store: g('store', 'tienda'),
+    into: g('into', 'merge_into', 'target', 'destino', 'to', 'to_category', 'nueva_categoria') };
 }
 const pickActions = (r) => { const x = r?.actions ?? r?.acciones ?? r?.changes ?? r?.cambios ?? r?.items ?? []; return Array.isArray(x) ? x : x && typeof x === 'object' ? [x] : []; };
 function cleanActions(list) {
@@ -1507,7 +1688,24 @@ function cleanActions(list) {
       name: String(a.name || '').trim().slice(0, 40), icon: LIST_ICONS.includes(a.icon) ? a.icon : '', color: COLORS.includes(a.color) ? a.color : '',
       type: TYPES.includes(a.type) ? a.type : '', group: String(a.group || '').trim().slice(0, 60), checks: cleanChecks(a.checks),
       url: /^https?:\/\//.test(String(a.url || '')) ? String(a.url) : '', price: String(a.price || '').trim().slice(0, 30), store: String(a.store || '').trim().slice(0, 40),
+      into: String(a.into || '').trim(),
     };
+    if (x.op === 'merge_list') {
+      const from = findCat(x.id), to = findCat(x.into);
+      if (!from || !to || from === to || from.system) continue;
+      x.id = from.id; x.into = to.id; out.push(x); continue;
+    }
+    if (x.op === 'update_project') {
+      const c = findCat(x.category) || findCat(projHome(x.group)); if (!c) continue;
+      const g = projList(c.id).find((p) => gkey(p) === gkey(x.group)); if (!g) continue;
+      const to = x.into ? findCat(x.into) : null;
+      x.category = c.id; x.group = g; x.into = to ? to.id : '';
+      if (!x.name && !x.into) continue;
+      out.push(x); continue;
+    }
+    if (['update_list', 'delete_list'].includes(x.op) && !cat(x.id) && findCat(x.id)) x.id = findCat(x.id).id;
+    // Proyecto con el nombre exacto que ya existe (sin duplicados por tildes o mayúsculas).
+    if (x.group && (x.op === 'add' || x.op === 'update')) { const cid = findCat(x.category)?.id || getItem(x.id)?.cat || ''; if (cid) x.group = canonProj(cid, x.group) || x.group; }
     if (x.op === 'add' && x.checks.length && !isListType(x.type)) x.type = /compr|super|util|comida|aliment/.test(norm(x.title)) ? 'compras' : 'lista';
     if (x.op === 'add' && isListType(x.type) && !x.checks.length && x.notes) { const ls = x.notes.split('\n').filter((l) => /^\s*([-*•]|\d+[.)])\s+/.test(l)); if (ls.length >= 2) { x.checks = cleanChecks(ls); x.notes = x.notes.split('\n').filter((l) => !ls.includes(l)).join('\n').trim(); } }
     if (x.op === 'add' && !x.title) continue;
@@ -1530,13 +1728,22 @@ function cleanProducts(list, web) {
     return { img, address: String(p?.address || '').trim().slice(0, 120), name: String(p?.name || '').trim().slice(0, 120), store: String(p?.store || '').trim().slice(0, 40) || (url ? domainOf(url) : ''), price: String(p?.price || '').trim().slice(0, 30), url, note: String(p?.note || '').trim().slice(0, 80), category: String(p?.category || '').trim().slice(0, 40) };
   }).filter((p) => p.name && (p.url || p.address) && (web.near || isLocalUrl(p.url))).slice(0, 6);
 }
-async function aiCommand(text, img, history = [], onStatus) {
+async function aiCommand(text, img, history = [], onStatus, opts = {}) {
   const parts = [];
   if (img) parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
   parts.push({ text: text || 'Extrae la información importante de esta imagen y guárdala.' });
-  STATUS = onStatus || null;
-  try { return await aiCommand0(text, img, history, onStatus, parts); } finally { STATUS = null; }
+  STATUS = onStatus || null; FOCUS = String(text || '').slice(0, 600);
+  try {
+    // Un corte de red o Groq saturado: se reintenta una vez solo, sin que tengas que tocar nada.
+    for (let k = 0; ; k++) {
+      try { return await aiCommand0(text, img, history, onStatus, parts, opts); }
+      catch (e) { if (k >= 1 || !['net', 'busy', 'empty'].includes(e.code)) throw e; onStatus?.('Reintentando…'); await sleep(1500); }
+    }
+  } finally { STATUS = null; FOCUS = ''; }
 }
+const cleanFollow = (list) => [...new Set((Array.isArray(list) ? list : typeof list === 'string' ? [list] : []).map((x) => String(typeof x === 'object' && x ? x.text || x.label || '' : x).replace(/^["'\s-]+|["'\s]+$/g, '').slice(0, 60)).filter((x) => x.length > 1))].slice(0, 3);
+const cleanFocus = (list) => [...new Set((Array.isArray(list) ? list : typeof list === 'string' ? [list] : []).map((x) => findCat(String(x))?.id).filter(Boolean))].slice(0, 2);
+const ORG_Q = /\b(ordena\w*|organiza\w*|reorganiza\w*|mejorar? (la )?(organizacion|orden)|como (puedo )?(mejoro|mejorar|ordeno|ordenar|organizo|organizar))\b[^.?!]*\b(categorias?|proyectos?|todo|nexo|la app|mi memoria)\b/;
 const QUERY_SCHEMA = { type: 'OBJECT', properties: { query: { type: 'STRING' }, ask: { type: 'STRING' } }, required: ['query'] };
 /* Pedidos claramente de internet: un modelo liviano arma la búsqueda (más rápido y no gasta el cupo del modelo principal). */
 /* La IA arma la búsqueda con lo que sabe del usuario (memoria + conversación). Si no sabe de quién o qué habla, pregunta. */
@@ -1727,7 +1934,12 @@ async function answerFromProducts(prev, onStatus) {
   const kgLine = bestKg ? `\n\n**Por kilo conviene:** ${bestKg.name} en **${bestKg.store}** (${fmtPrice(perKg(bestKg))}/kg).` : '';
   return { reply: `**Mejor precio:** ${b.name} en **${b.store}** a **${b.price}**${kgTxt(b)}.${kgLine}${rest ? '\n\nLas demás:\n' + rest : ''}${noPrice ? `\n\n${noPrice} opción${noPrice > 1 ? 'es' : ''} sin precio visible en la página.` : ''}`, actions: [], products: sortByPrice(ps), sources: [], links: [] };
 }
-async function aiCommand0(text, img, history, onStatus, parts) {
+async function aiCommand0(text, img, history, onStatus, parts, opts = {}) {
+  if (opts.organize) {
+    onStatus?.('Revisando cómo está ordenado…');
+    const r = await gemini({ system: organizeSystem(opts.cat || ''), parts, history: history.slice(-4), schema: CMD_SCHEMA, ms: 40000 });
+    return { reply: String(r.reply || ''), actions: cleanActions(pickActions(r)), followups: cleanFollow(r.followups), focus: cleanFocus(r.focus).length ? cleanFocus(r.focus) : opts.cat ? [opts.cat] : [], review: true, sources: [], entry: '', links: [], products: [] };
+  }
   const full = norm(text || '');
   // La intención se lee en lo que el usuario escribió (primera línea), no en el correo o PDF pegado.
   const nt = full.length > 300 || /contenido del pdf/.test(full) ? norm((text || '').split('\n')[0].slice(0, 250)) : full;
@@ -1766,10 +1978,16 @@ async function aiCommand0(text, img, history, onStatus, parts) {
       if (cleanActions(pickActions(r2)).length) r = r2;
     } catch {}
   }
+  // Respuesta vacía (pasa a veces con los modelos gratis): se pide de nuevo antes de rendirse.
+  if (!q && !String(r.reply || '').trim() && !cleanActions(pickActions(r)).length) {
+    onStatus?.('Pensándolo de nuevo…');
+    try { const r2 = await gemini({ system: commandSystem() + '\n\nIMPORTANTE: tu respuesta anterior llegó vacía. Responde ahora con reply (no vacío) y el JSON completo.', parts, history: history.slice(-4), schema: CMD_SCHEMA }); if (String(r2.reply || '').trim() || pickActions(r2).length) r = r2; } catch {}
+  }
   // Si Gemini dice que "no tiene acceso", busca de todos modos.
   if (!q && webOn() && NO_WEB_REPLY.test(norm(r.reply || ''))) q = (text || '').slice(0, 300);
   if (q && webOn()) return searchFlow(q, text, false, parts, history, onStatus);
-  return { reply: String(r.reply || ''), actions: cleanActions(pickActions(r)), sources: [], entry: '', links: [], products: [] };
+  const actions = cleanActions(pickActions(r));
+  return { reply: String(r.reply || '').trim() || (actions.length ? '' : 'No estoy seguro de qué necesitas. ¿Me lo dices con otras palabras?'), actions, followups: cleanFollow(r.followups), focus: cleanFocus(r.focus), sources: [], entry: '', links: [], products: [] };
 }
 
 /* sin IA */
@@ -1952,6 +2170,7 @@ const HINTS = () => [
   'Marca los útiles como comprados',
   'Cambia la fecha del viaje al 22 de dic',
   'Crea una categoría para la casa',
+  'Ordena mis categorías',
 ];
 
 /* Lo que importa hoy: señales concretas, sin ruido */
@@ -2019,16 +2238,46 @@ function viewHome() {
     </button>`).join('')}</div>`;
 }
 
+/* Diagnóstico local (sin IA) de lo que está desordenado. */
+function auditOrg() {
+  const out = [];
+  for (const c of S.cats) {
+    if (c.id === 'perfil') continue;
+    const open = S.items.filter((i) => i.cat === c.id && !i.done);
+    const loose = open.filter((i) => !i.group).length;
+    if (c.id === 'notas') { if (open.length >= 5) out.push({ icon: 'note', cat: c.id, w: open.length, html: `<b>${open.length} elementos en Notas</b> podrían ir en otra categoría` }); continue; }
+    if (loose >= 5) out.push({ icon: 'folder', cat: c.id, w: loose, html: `<b>${esc(c.name)}</b> tiene ${loose} elementos sin proyecto` });
+    if (!c.system && !S.items.some((i) => i.cat === c.id) && !(c.projs || []).length) out.push({ icon: 'alert', cat: c.id, w: 1, html: `<b>${esc(c.name)}</b> está vacía. ¿La usas?` });
+    const doneN = S.items.filter((i) => i.cat === c.id && i.done).length;
+    if (doneN >= 8) out.push({ icon: 'check', cat: c.id, w: doneN / 3, html: `<b>${esc(c.name)}</b> tiene ${doneN} completados guardados` });
+  }
+  const cs = S.cats.filter((c) => c.id !== 'perfil');
+  for (let a = 0; a < cs.length; a++) for (let b = a + 1; b < cs.length; b++) {
+    const x = gkey(cs[a].name), y = gkey(cs[b].name);
+    if (x && y && (x === y || (Math.min(x.length, y.length) >= 5 && (x.includes(y) || y.includes(x))))) out.push({ icon: 'repeat', w: 7, html: `<b>${esc(cs[a].name)}</b> y <b>${esc(cs[b].name)}</b> parecen el mismo tema` });
+  }
+  return out.sort((p, q) => q.w - p.w);
+}
+function catSub(c) {
+  const np = projList(c.id).length, n = pendingCount(c.id);
+  return [np ? `${np} proyecto${np > 1 ? 's' : ''}` : '', n ? (c.id === 'perfil' ? `${n} dato${n > 1 ? 's' : ''}` : `${n} pendiente${n > 1 ? 's' : ''}`) : 'Vacía'].filter(Boolean).join(' · ');
+}
 function viewLists() {
+  const tips = auditOrg().slice(0, 3);
+  const spark = SPARK.replace('<svg', '<svg class="ic"');
   return `
   <header class="top"><h1>Categorías</h1></header>
+  ${tips.length ? `<div class="card org"><div class="org-h">${ic('bolt', 'sm')} Para tener todo en orden</div>
+    ${tips.map((t) => `<button class="sig" ${t.cat ? `data-act="cat" data-id="${t.cat}"` : ''}>${ic(t.icon, 'sm')}<span>${t.html}</span></button>`).join('')}
+    ${hasAI() ? `<button class="btn ai block" data-act="organize">${spark} Ordenar con Nexo</button>` : ''}</div>`
+    : hasAI() ? `<button class="btn block org-btn" data-act="organize">${spark} Revisar el orden con Nexo</button>` : ''}
   <div class="card list" style="margin-top:14px">${S.cats.map((c) => `
     <button class="cat-row" data-act="cat" data-id="${c.id}">
-      <span class="em t-${catColor(c)}">${ic(c.icon)}</span><span class="nm">${esc(c.name)}</span>
-      <span class="ct">${pendingCount(c.id) || ''}</span><span class="chev">${ic('right', 'sm')}</span>
+      <span class="em t-${catColor(c)}">${ic(c.icon)}</span><span class="nm">${esc(c.name)}<span class="sub">${catSub(c)}</span></span>
+      <span class="chev">${ic('right', 'sm')}</span>
     </button>`).join('')}</div>
   <button class="btn block" style="margin-top:14px" data-act="newCat">${ic('plus')} Nueva categoría</button>
-  <p class="help">Toca una categoría y luego "Editar" para cambiar su nombre, icono, color u orden. Dentro, Nexo ordena todo por grupos.</p>`;
+  <p class="help">Cada categoría tiene proyectos y cada proyecto separa sus elementos por tipo. Toca una categoría y luego "Editar" para cambiar su nombre, icono, color u orden, o combinarla con otra.</p>`;
 }
 
 const TYPE_ORDER = ['evento', 'lista', 'compras', 'producto', 'tarea', 'nota'];
@@ -2042,7 +2291,7 @@ function viewCategory(id) {
   const c = cat(id);
   if (!c) { UI.cat = null; return viewLists(); }
   const all = S.items.filter((i) => i.cat === id);
-  const projs = [...new Set(all.map((i) => i.group || ''))].sort((a, b) => (a === '') - (b === '') || a.localeCompare(b, 'es'));
+  const projs = [...projList(id), ...(all.some((i) => !i.group) || !projList(id).length ? [''] : [])];
   const tile = (g) => {
     const its = projItems(id, g), open = its.filter((i) => !i.done);
     const counts = TYPE_ORDER.map((t) => [t, open.filter((i) => itemType(i) === t).length]).filter((x) => x[1]);
@@ -2051,7 +2300,7 @@ function viewCategory(id) {
     return `<button class="ptile ${g ? '' : 'general'}" data-act="proj" data-g="${esc(g)}">
       <span class="pt-ic t-${catColor(c)}">${ic(g ? 'folder' : c.icon, 'sm')}</span>
       <span class="pt-name">${esc(g || 'General')}</span>
-      ${next ? `<span class="pt-next">${ic('calendar', 'xs')} ${esc(whenTxt(effectiveDate(next)))} · ${esc(next.title)}</span>` : `<span class="pt-next muted">${open.length ? `${open.length} pendiente${open.length > 1 ? 's' : ''}` : 'Todo listo'}</span>`}
+      ${next ? `<span class="pt-next">${ic('calendar', 'xs')} ${esc(whenTxt(effectiveDate(next)))} · ${esc(next.title)}</span>` : `<span class="pt-next muted">${open.length ? `${open.length} pendiente${open.length > 1 ? 's' : ''}` : its.length ? 'Todo listo' : 'Vacío'}</span>`}
       ${cks.length ? `<span class="pt-bar"><i style="width:${Math.round((ckDone * 100) / cks.length)}%"></i></span>` : ''}
       <span class="pt-counts">${counts.map(([t, n]) => `<span title="${TYPE_SEC[t][0]}">${ic(TYPE_SEC[t][1], 'xs')} ${n}</span>`).join('')}</span>
     </button>`;
@@ -2061,7 +2310,8 @@ function viewCategory(id) {
   <div class="top-row" style="padding-top:0"><h1>${esc(c.name)}</h1><button class="btn" data-act="editCat" data-id="${c.id}">${ic('pencil', 'sm')} Editar</button></div>
   ${hasAI() ? `<form class="add-row" data-form="catAsk"><input class="in" id="quickIn" placeholder="Pídele algo a Nexo sobre ${esc(c.name)}…" autocomplete="off" aria-label="Pedirle algo a Nexo"><button class="btn ai sq" aria-label="Pedírselo a Nexo">${SPARK.replace('<svg', '<svg class="ic"')}</button></form>` : ''}
   <div class="pgrid">${projs.map(tile).join('')}
-    <button class="ptile add" data-act="newProj">${ic('plus')}<span class="pt-name">Nuevo proyecto</span></button></div>`;
+    <button class="ptile add" data-act="newProj">${ic('plus')}<span class="pt-name">Nuevo proyecto</span></button></div>
+  ${hasAI() && all.length >= 3 ? `<button class="btn block org-btn" data-act="organize" data-id="${c.id}">${SPARK.replace('<svg', '<svg class="ic"')} Ordenar ${esc(c.name)} con Nexo</button>` : ''}`;
 }
 /* Proyecto: sus elementos separados por tipo, cada tipo con su propio diseño. */
 function viewProject(id, g) {
@@ -2088,7 +2338,7 @@ function viewProject(id, g) {
   ${secs || '<p class="empty">Este proyecto está vacío. Agrega algo arriba o pídeselo a Nexo.</p>'}
   ${done.length ? `<button class="toggle-done" data-act="toggleDone">${UI.showDone ? 'Ocultar' : 'Mostrar'} completados (${done.length})</button>
     ${UI.showDone ? `<div class="card list" style="margin-top:8px">${done.map((i) => itemRow(i, false)).join('')}</div>
-    <button class="toggle-done" style="color:var(--danger)" data-act="clearDone" data-id="${id}">Borrar completados</button>` : ''}` : ''}`;
+    <button class="toggle-done" style="color:var(--danger)" data-act="clearDone" data-id="${id}" data-g="${esc(g)}">Borrar completados de este proyecto</button>` : ''}` : ''}`;
 }
 /* Tarjeta según el tipo: recordatorio (fecha grande), nota (papel), tarea (check), producto (foto + precio). */
 function typeCard(it, t) {
@@ -2133,6 +2383,7 @@ function typeCard(it, t) {
 
 const SUGGEST = () => [
   'Dame mi brief de hoy',
+  '¿Cómo puedo ordenar mejor mis categorías?',
   `¿Qué le puedo regalar a ${spouse() || 'mi esposa'}?`,
   '¿Qué tengo pendiente esta semana?',
   `¿Qué le falta a ${kid() || 'mi hija'} para el colegio?`,
@@ -2147,7 +2398,7 @@ function linkify(html) {
 }
 function botMsg(r, extra = {}) {
   const dest = r.products?.length ? (r.products.find((p) => p.category)?.category || '') : '';
-  return { role: 'bot', text: r.reply, actions: r.actions, sources: r.sources, entry: r.entry, links: r.links, products: r.products, dest: findCat(dest)?.id || (dest ? 'new:' + dest : 'notas'), ...extra };
+  return { role: 'bot', text: r.reply, actions: r.actions, sources: r.sources, entry: r.entry, links: r.links, products: r.products, dest: findCat(dest)?.id || (dest ? 'new:' + dest : 'notas'), followups: r.followups || [], cats: r.focus || [], ...extra };
 }
 /* Cuando Gemini termina de afinar una búsqueda, actualiza la tarjeta (si aún no se guardó nada). */
 function attachRefine(msg, r) {
@@ -2254,10 +2505,12 @@ function viewAsk() {
       : (m.html || mdLite(m.text)) + (m.refining ? '<div class="refining"><span class="spin"></span> Afinando la recomendación…</div>' : '') + (m.products?.length ? productsHtml(m, i) : sourcesHtml(m));
     const act = m.actions?.length
       ? m.applied ? `<div class="applied">${ic('check', 'sm')} Cambios aplicados</div>`
-        : `<button class="btn primary" data-act="chatReview" data-i="${i}">Revisar y aplicar ${m.actions.length} cambio${m.actions.length > 1 ? 's' : ''}</button>`
+        : `<button class="btn primary" style="margin-top:10px" data-act="chatReview" data-i="${i}">Revisar y aplicar ${m.actions.length} cambio${m.actions.length > 1 ? 's' : ''}</button>`
       : '';
+    const cs = (m.cats || []).filter((c) => cat(c));
     const retry = (m.retry && !m.applied ? `<button class="btn" data-act="retryAsk" data-i="${i}">${ic('repeat', 'sm')} Reintentar</button>` : '') +
-      (m.cats?.length ? `<div class="done-btns">${m.cats.map((c) => `<button class="btn" data-act="cat" data-id="${esc(c)}">${ic('right', 'sm')} Ver ${esc(catName(c))}</button>`).join('')}${m.undoable ? `<button class="btn" data-act="undo">${ic('repeat', 'sm')} Deshacer</button>` : ''}</div>` : '');
+      (cs.length || m.undoable ? `<div class="done-btns">${cs.map((c) => `<button class="btn" data-act="cat" data-id="${esc(c)}">${ic('right', 'sm')} Ver ${esc(catName(c))}</button>`).join('')}${m.undoable ? `<button class="btn" data-act="undo">${ic('repeat', 'sm')} Deshacer</button>` : ''}</div>` : '') +
+      (i === CHAT.length - 1 && !m.thinking && m.followups?.length ? `<div class="fu">${m.followups.map((f) => `<button class="chip fu-chip" data-act="suggest">${esc(f)}</button>`).join('')}</div>` : '');
     return `<div class="bot-row"><span class="nx">${SPARK}</span><div class="bubble bot ${m.thinking ? 'thinking' : ''}">${body}${act}${retry}</div></div>`;
   }).join('');
   return `
@@ -2337,7 +2590,7 @@ function viewSettings() {
     <button class="set-row danger" data-act="wipe">${ic('trash')}<span class="nm">Borrar toda la memoria</span></button>
   </div>
   <p class="help">Tu información vive solo en este teléfono. Haz un respaldo de vez en cuando y guárdalo en iCloud Drive (Archivos).</p>
-  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v6.2</p>`;
+  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v7.0</p>`;
 }
 
 function afterRender() {
@@ -2420,7 +2673,7 @@ function openReview(actions, reply, onDone) {
   const n = actions.length;
   const sh = openSheet(`
     <h3>${allAdds ? (n > 1 ? `Guardar ${n} elementos` : 'Guardar en memoria') : (n > 1 ? `Revisa ${n} cambios` : 'Revisa el cambio')}</h3>
-    ${reply ? `<div class="muted small review-reply">${mdLite(reply)}</div>` : '<p class="muted small" style="margin:0 2px">Ajusta lo que quieras antes de guardar.</p>'}
+    ${reply ? `<div class="muted small review-reply">${mdLite(reply)}</div>` : '<p class="muted small" style="margin:0 2px">Desmarca lo que no quieras. Todo se puede deshacer.</p>'}
     <div>${rows}</div>
     <div class="sheet-actions"><button class="btn" data-close>Cancelar</button><button class="btn primary" data-act="reviewApply">${allAdds ? 'Guardar' : 'Aplicar'}</button></div>`);
   $$('.pv > input[type=checkbox]', sh).forEach((cb) => cb.addEventListener('change', () => cb.closest('.pv').classList.toggle('off', !cb.checked)));
@@ -2440,7 +2693,7 @@ function addRow(a, k) {
 }
 function changeRow(a, k) {
   const it = getItem(a.id), c = cat(a.id);
-  const L = { update: 'Editar', done: 'Marcar como hecho', undone: 'Marcar pendiente', delete: 'Eliminar', add_list: 'Categoría nueva', update_list: 'Editar lista', delete_list: 'Eliminar lista' };
+  const L = { update: 'Editar', done: 'Marcar como hecho', undone: 'Marcar pendiente', delete: 'Eliminar', add_list: 'Categoría nueva', update_list: 'Editar categoría', delete_list: 'Eliminar categoría', merge_list: 'Combinar categorías', update_project: 'Proyecto' };
   let title = '', diff = [];
   if (['update', 'done', 'undone', 'delete'].includes(a.op)) title = it.title;
   if (a.op === 'update') {
@@ -2448,8 +2701,12 @@ function changeRow(a, k) {
     if (a.category && findCat(a.category)?.id !== it.cat) diff.push(`Categoría: ${esc(catName(it.cat))} → <b>${esc(catLabelFor(a.category))}</b>`);
     if (a.date) diff.push(`Fecha: ${esc(fmtDate(it.date))} → <b>${esc(a.date === 'none' ? 'sin fecha' : fmtDate(a.date))}</b>`);
     if (a.repeat) diff.push(`Repetir cada año: <b>${a.repeat === 'yearly' ? 'sí' : 'no'}</b>`);
-    if (a.notes) diff.push(`Notas: <b>${esc(a.notes)}</b>`);
+    if (a.group && a.group !== it.group) diff.push(`Proyecto: ${esc(it.group || 'General')} → <b>${esc(a.group)}</b>`);
+    if (a.type && a.type !== itemType(it)) diff.push(`Tipo: <b>${esc(TYPE_NAMES[a.type])}</b>`);
+    if (a.notes) diff.push(`Notas: <b>${esc(a.notes.slice(0, 160))}</b>`);
   }
+  if (a.op === 'merge_list') { title = catName(a.id); diff.push(`Todo pasa a <b>${esc(catName(a.into))}</b> y ${esc(catName(a.id))} desaparece`); }
+  if (a.op === 'update_project') { title = `${catName(a.category)} › ${a.group}`; if (a.name && a.name !== a.group) diff.push(`Nombre: <b>${esc(a.name)}</b>`); if (a.into && a.into !== a.category) diff.push(`Pasa a <b>${esc(catName(a.into))}</b>`); }
   if (a.op === 'add_list') { title = a.name; diff.push(`${a.icon ? 'Icono ' + ic(a.icon, 'xs') + ' · ' : ''}${COLOR_NAMES[a.color || 'dark']}`); }
   if (a.op === 'update_list') {
     title = c.name;
@@ -2458,10 +2715,11 @@ function changeRow(a, k) {
     if (a.color) diff.push(`Color: <b>${COLOR_NAMES[a.color]}</b>`);
   }
   if (a.op === 'delete_list') { title = c.name; diff.push('Sus elementos pasarán a Notas'); }
+  if (!title) title = it?.title || c?.name || '';
   return `<div class="pv" data-k="${k}">
     <input type="checkbox" checked aria-label="Incluir">
     <div class="pv-body">
-      <span class="ch-op ${a.op.startsWith('delete') ? 'del' : a.op === 'add_list' ? 'add' : ''}">${L[a.op]}</span>
+      <span class="ch-op ${a.op.startsWith('delete') ? 'del' : a.op === 'add_list' ? 'add' : ''}">${L[a.op] || 'Cambio'}</span>
       <span class="ch-title">${esc(title)}</span>
       ${diff.length ? `<div class="ch-diff">${diff.map((d) => `<span>${d}</span>`).join('')}</div>` : ''}
     </div></div>`;
@@ -2470,47 +2728,23 @@ function applyReview() {
   if (!REVIEW) return;
   const { actions, onDone } = REVIEW;
   const rowOf = (k) => $(`#sheet .pv[data-k="${k}"]`);
-  const on = (k) => $('input[type=checkbox]', rowOf(k)).checked;
-  snapshot();
-  let n = 0;
+  const list = [];
   actions.forEach((a, k) => {
-    if (!on(k)) return;
-    if (a.op === 'add_list') { ensureCategory(a.name, a.icon, a.color); n++; }
-    if (a.op === 'update_list') { const c = cat(a.id); if (!c) return; if (a.name) c.name = a.name; if (a.icon) c.icon = a.icon; if (a.color) c.color = a.color; n++; }
-  });
-  actions.forEach((a, k) => {
-    if (!on(k)) return;
     const row = rowOf(k);
-    if (a.op === 'add') {
-      const v = $('.pv-cat', row).value;
-      const catId = v.startsWith('new:') ? ensureCategory(v.slice(4)) : v;
-      if (addItem({ title: $('.pv-title', row).value, cat: catId, date: $('.pv-date', row).value, notes: $('.pv-notes', row).value, repeat: a.repeat })) n++;
-      return;
-    }
-    const it = getItem(a.id);
-    if (!it) return;
-    if (a.op === 'update') {
-      if (a.title) it.title = a.title;
-      if (a.category) it.cat = ensureCategory(a.category);
-      if (a.date === 'none') it.date = ''; else if (a.date) it.date = a.date;
-      if (a.notes) it.notes = a.notes;
-      if (a.repeat === 'yearly') it.repeat = 'yearly'; else if (a.repeat === 'none') it.repeat = '';
-      if (it.pkey) { delete S.profile[it.pkey]; delete it.pkey; }
-    }
-    if (a.op === 'done') it.done = true;
-    if (a.op === 'undone') it.done = false;
-    if (a.op === 'delete') { if (it.pkey) delete S.profile[it.pkey]; S.items = S.items.filter((x) => x !== it); }
-    it.updated = Date.now(); n++;
+    if (!row || !$('input[type=checkbox]', row).checked) return;
+    if (a.op !== 'add') return list.push(a);
+    const v = $('.pv-cat', row).value;
+    list.push({ ...a, title: $('.pv-title', row).value.trim(), category: v.startsWith('new:') ? v.slice(4) : v, date: $('.pv-date', row).value, notes: $('.pv-notes', row).value });
   });
-  actions.forEach((a, k) => { if (on(k) && a.op === 'delete_list' && cat(a.id)) { removeList(a.id); n++; } });
-  save(); closeSheet(); REVIEW = null;
-  if (n && onDone) onDone();
+  const done = list.length ? applyNow(list) : [];
+  closeSheet(); REVIEW = null;
+  if (done.length && onDone) onDone(done);
   render();
-  toast(n ? `${n} cambio${n > 1 ? 's' : ''} aplicado${n > 1 ? 's' : ''}` : 'No se aplicó nada', n ? { undo: true } : {});
+  toast(done.length ? `${done.length} cambio${done.length > 1 ? 's' : ''} aplicado${done.length > 1 ? 's' : ''}` : 'No se aplicó nada', done.length ? { undo: true } : {});
 }
 
 /* Aplica al instante lo que no borra nada (se puede deshacer). Devuelve qué se hizo de verdad, para contarlo tal cual. */
-const RISKY = (a) => a.op === 'delete' || a.op === 'delete_list';
+const RISKY = (a) => a.op === 'delete' || a.op === 'delete_list' || a.op === 'merge_list';
 function applyNow(actions) {
   snapshot();
   const done = [];
@@ -2520,22 +2754,33 @@ function applyNow(actions) {
   }
   for (const a of actions) {
     if (a.op === 'add') {
-      const catId = ensureCategory(a.category || 'notas');
+      let catId = ensureCategory(a.category || 'notas');
+      if (a.group && (!a.category || catId === 'notas')) catId = projHome(a.group) || catId;
       const it = addItem({ title: a.title, cat: catId, date: a.date === 'none' ? '' : a.date, notes: a.notes, repeat: a.repeat, type: a.type, group: a.group, checks: a.checks, url: a.url, price: a.price, store: a.store });
       if (it) done.push({ kind: 'Guardado', cat: catId, group: it.group, title: it.title, date: it.date, n: it.checks?.length || 0, type: itemType(it) });
       continue;
     }
     const it = getItem(a.id);
-    if (!it || !['update', 'done', 'undone'].includes(a.op)) continue;
+    if (!it || !['update', 'done', 'undone', 'delete'].includes(a.op)) continue;
+    if (a.op === 'delete') {
+      if (it.pkey) delete S.profile[it.pkey];
+      S.items = S.items.filter((x) => x !== it);
+      done.push({ kind: 'Eliminado', cat: it.cat, title: it.title, special: true });
+      continue;
+    }
     let kind = 'Actualizado';
     if (a.op === 'update') {
       if (a.title) it.title = a.title;
-      if (a.category) { const c = ensureCategory(a.category); if (c !== it.cat) kind = 'Movido'; it.cat = c; }
+      if (a.category) { const c = ensureCategory(a.category); if (c !== it.cat) { kind = 'Movido'; it.cat = c; if (it.group && !a.group) it.group = ensureProj(c, it.group); } }
       if (a.date === 'none') it.date = ''; else if (a.date) it.date = a.date;
       if (a.notes) it.notes = a.notes;
       if (a.repeat === 'yearly') it.repeat = 'yearly'; else if (a.repeat === 'none') it.repeat = '';
       if (a.type) it.type = a.type;
-      if (a.group) { if (a.group !== it.group && kind !== 'Movido') kind = 'Ordenado'; it.group = a.group; }
+      if (a.group) {
+        const g = ensureProj(it.cat, a.group);
+        if (g !== (it.group || '') && kind !== 'Movido') kind = 'Ordenado';
+        if (g) it.group = g; else delete it.group;
+      }
       if (a.url) it.url = a.url; if (a.price) it.price = a.price; if (a.store) it.store = a.store;
       if (a.checks?.length) {
         const have = new Set((it.checks || []).map((c) => norm(c.t)));
@@ -2550,6 +2795,17 @@ function applyNow(actions) {
     it.updated = Date.now();
     done.push({ kind, cat: it.cat, group: it.group, title: it.title, date: it.date, n: 0, type: itemType(it) });
   }
+  // Renombrar o mover proyectos va después de ordenar los elementos (así lo que se sumó al proyecto viaja con él).
+  for (const a of actions) {
+    if (a.op !== 'update_project' || !cat(a.category)) continue;
+    const to = cat(a.into) ? a.into : a.category;
+    const g = renameProj(a.category, a.group, a.name || a.group, to);
+    done.push({ kind: 'Proyecto actualizado', cat: to, title: a.name && a.name !== a.group ? `${a.group} → ${g}` : `${g} → ${catName(to)}`, special: true });
+  }
+  for (const a of actions) {
+    if (a.op === 'merge_list' && cat(a.id) && cat(a.into)) { const from = catName(a.id); mergeCats(a.id, a.into); done.push({ kind: 'Categorías combinadas', cat: a.into, title: `${from} → ${catName(a.into)}`, special: true }); }
+    if (a.op === 'delete_list' && cat(a.id) && !cat(a.id).system) { const nm = catName(a.id); removeList(a.id); done.push({ kind: 'Categoría eliminada', cat: 'notas', title: nm, special: true }); }
+  }
   save();
   return done;
 }
@@ -2559,7 +2815,7 @@ function doneSummary(done) {
   const TL = { lista: 'lista', compras: 'lista de compras', evento: 'recordatorio', producto: 'producto' };
   return Object.entries(groups).map(([k, ds]) => {
     const [kind, c, g] = k.split('|');
-    if (kind.startsWith('Categoría')) return `**${kind}:** ${ds.map((d) => d.title).join(', ')}`;
+    if (kind.startsWith('Categor') || kind.startsWith('Proyecto') || ds[0].special) return `**${kind}:** ${ds.map((d) => d.title).join(', ')}`;
     return `**${kind} en ${catName(c)}${g ? ' › ' + g : ''}** (${ds.length}):\n` + ds.map((d) => `- ${d.title}${TL[d.type] ? ` (${TL[d.type]}${d.n ? `, ${d.n} ítems` : ''})` : ''}${d.date ? ' · ' + new Date(d.date + 'T12:00').toLocaleDateString('es-CL', { day: 'numeric', month: 'short' }) : ''}`).join('\n');
   }).join('\n\n');
 }
@@ -2567,7 +2823,7 @@ function doneSummary(done) {
 function applyResult(r) {
   const safe = r.actions.filter((a) => !RISKY(a)), risky = r.actions.filter(RISKY);
   const done = safe.length ? applyNow(safe) : [];
-  return { done, risky, cats: [...new Set(done.map((d) => d.cat))].filter((c) => cat(c)) };
+  return { done, risky, cats: [...new Set(done.map((d) => d.cat))].filter((c) => cat(c)).slice(0, 3) };
 }
 
 /* Detalle de un elemento: todo editable + pedirle cambios a Nexo */
@@ -2590,10 +2846,10 @@ function openItem(id) {
       <button type="button" class="btn" data-act="ckNew">${ic('plus', 'sm')} Agregar ítem</button>
     </div>
     <div class="pv-row" style="gap:10px">
-      <div style="flex:1"><label class="lbl" for="edCat">Categoría</label><select class="in" id="edCat">${catOptions(it.cat)}</select></div>
+      <div style="flex:1"><label class="lbl" for="edCat">Categoría</label><select class="in" id="edCat" onchange="grpOpts(this.value)">${catOptions(it.cat)}</select></div>
       <div style="flex:1"><label class="lbl" for="edGroup">Proyecto</label><input class="in" id="edGroup" list="grpList" value="${esc(it.group || '')}" placeholder="General"></div>
     </div>
-    <datalist id="grpList">${[...new Set(S.items.map((i) => i.group).filter(Boolean))].map((g) => `<option value="${esc(g)}">`).join('')}</datalist>
+    <datalist id="grpList">${projList(it.cat).map((g) => `<option value="${esc(g)}">`).join('')}</datalist>
     <div class="pv-row" style="gap:10px" data-for="producto compras">
       <div style="flex:2"><label class="lbl" for="edUrl">Link de la tienda</label><input class="in" id="edUrl" type="url" value="${esc(it.url || '')}" placeholder="https://…"></div>
       <div style="flex:1"><label class="lbl" for="edPrice">Precio</label><input class="in" id="edPrice" value="${esc(it.price || '')}" placeholder="$"></div>
@@ -2613,6 +2869,7 @@ function openItem(id) {
     </div>`);
   showTypeFields(itemType(it));
 }
+function grpOpts(catId) { const d = $('#grpList'); if (d) d.innerHTML = projList(catId).map((g) => `<option value="${esc(g)}">`).join(''); }
 /* En el detalle, muestra solo los campos que tienen sentido para ese tipo. */
 function showTypeFields(t) {
   $$('#sheet [data-for]').forEach((el) => { el.hidden = !el.dataset.for.split(' ').includes(t); });
@@ -2638,7 +2895,7 @@ function saveItem(id) {
     return t.trim() ? { id: uid(), t: t.trim(), qty: (qty || '').trim(), url: /^https?:\/\//.test(url) ? url : '', price: '', done: $('.ck-done', r).checked } : null;
   }).filter(Boolean);
   const url = $('#edUrl').value.trim();
-  Object.assign(it, { type, group: $('#edGroup').value.trim() || undefined, url: /^https?:\/\//.test(url) ? url : undefined, price: $('#edPrice').value.trim() || undefined });
+  Object.assign(it, { type, url: /^https?:\/\//.test(url) ? url : undefined, price: $('#edPrice').value.trim() || undefined });
   if (isListType(type)) { it.checks = checks; if (checks.length) it.done = checks.every((c) => c.done); } else if (!checks.length) delete it.checks;
   const cv = $('#edCat').value;
   Object.assign(it, {
@@ -2646,6 +2903,7 @@ function saveItem(id) {
     date: isYmd($('#edDate').value) ? $('#edDate').value : '',
     repeat: $('#edYearly').checked ? 'yearly' : '', updated: Date.now(),
   });
+  const g = ensureProj(it.cat, $('#edGroup').value); if (g) it.group = g; else delete it.group;
   if (it.pkey) { delete S.profile[it.pkey]; delete it.pkey; }
   save(); closeSheet(); render(); toast('Guardado', { undo: true });
 }
@@ -2669,6 +2927,7 @@ function openCatEditor(id) {
     <div class="sheet-actions">
       ${c && !c.system ? `<button class="btn danger" data-act="delCat" data-id="${c.id}">${ic('trash')} Eliminar</button>` : '<button class="btn" data-close>Cancelar</button>'}
       <button class="btn primary" data-act="saveCat" data-id="${c?.id || ''}">Guardar</button>
+      ${c && !c.system && S.cats.length > 1 ? `<button class="btn" style="flex-basis:100%" data-act="mergeCat" data-id="${c.id}">${ic('repeat', 'sm')} Combinar con otra categoría</button>` : ''}
     </div>`);
   if (!c) setTimeout(() => $('#ceName').focus(), 250);
 }
@@ -2691,7 +2950,7 @@ async function runNexo(text, btn, img = null) {
   finally { setBusy(btn, false); }
 }
 function chatHistory() {
-  return CHAT.filter((m) => !m.thinking && m.text).slice(-10)
+  return CHAT.filter((m) => !m.thinking && m.text).slice(-8)
     .map((m) => ({ role: m.role === 'me' ? 'user' : 'model', parts: [{ text: m.text + (m.products?.length ? '\n[Opciones mostradas: ' + m.products.map((p, j) => `${j + 1}) ${p.name} — ${p.store} — ${p.price || 'sin precio'}`).join('; ') + ']' : '') }] }));
 }
 async function doCapture(btn) {
@@ -2712,7 +2971,7 @@ async function doCapture(btn) {
     const ap = applyResult(r);
     if (ap.done.length) {
       clear();
-      CHAT.push({ role: 'me', text: shown }, botMsg({ ...r, actions: ap.risky }, { cats: ap.cats, undoable: true, text: [r.reply, doneSummary(ap.done)].filter(Boolean).join('\n\n') }));
+      CHAT.push({ role: 'me', text: shown }, botMsg({ ...r, actions: ap.risky }, { cats: ap.cats, undoable: true, followups: [...(r.followups || []), orgNudge(ap.cats)].filter(Boolean).slice(0, 3), text: [r.reply, doneSummary(ap.done)].filter(Boolean).join('\n\n') }));
       toast(`${ap.done.length} guardado${ap.done.length > 1 ? 's' : ''} en ${ap.cats.map(catName).join(', ')}`, { undo: true });
       return go('ask');
     }
@@ -2725,8 +2984,24 @@ async function doCapture(btn) {
   pendingImg = null; pendingPdf = null;
   go('ask');
 }
-async function doAsk(q) {
+/* Sugerencia proactiva: si una categoría quedó con muchos elementos sueltos, ofrece ordenarla. */
+function orgNudge(catIds) {
+  for (const id of catIds || []) {
+    const c = cat(id); if (!c || c.id === 'perfil') continue;
+    const loose = S.items.filter((i) => i.cat === id && !i.done && !i.group).length;
+    if (loose >= 5) return `Ordena ${c.name} en proyectos`;
+  }
+  return '';
+}
+async function doAsk(q, opts = {}) {
   q = q.trim(); if (!q) return;
+  // "Ordena Colegio en proyectos", "¿cómo ordeno mejor mis categorías?" → modo ordenar.
+  if (!opts.organize && hasAI() && q.length < 160) {
+    const nq = norm(q).replace(/^[¿\s]+/, '');
+    const rest = nq.replace(/^(ordena|organiza|reorganiza)r?\s+(la categoria |mi categoria |la de |mis |mi |el |la |lo de )?/, '');
+    const lead = rest !== nq ? S.cats.find((c) => rest.startsWith(norm(c.name))) : null;
+    if (lead || ORG_Q.test(nq)) opts = { organize: true, cat: (lead || S.cats.find((c) => nq.includes(norm(c.name))))?.id || '' };
+  }
   if (!hasAI()) {
     CHAT.push({ role: 'me', text: q });
     const found = localSearch(q);
@@ -2740,11 +3015,19 @@ async function doAsk(q) {
   const thinking = { role: 'bot', thinking: true, t0: Date.now() };
   CHAT.push(thinking); render();
   try {
-    const r = await aiCommand(q, null, history, (st) => { thinking.status = st; if (UI.tab === 'ask') render(); });
+    const r = await aiCommand(q, null, history, (st) => { thinking.status = st; if (UI.tab === 'ask') render(); }, opts);
+    if (r.review) {
+      // Ordenar: Nexo propone y tú revisas antes de aplicar.
+      Object.assign(thinking, botMsg(r, { thinking: false, text: r.reply || (r.actions.length ? 'Te propongo estos cambios:' : 'Tus categorías se ven bien ordenadas.') }));
+      if (UI.tab === 'ask') render();
+      return;
+    }
     const ap = applyResult(r);
     const sum = doneSummary(ap.done);
     const failed = r.actions.length && !ap.done.length && !ap.risky.length;
-    Object.assign(thinking, botMsg({ ...r, actions: ap.risky }, { thinking: false, cats: ap.cats, undoable: ap.done.length > 0,
+    const nudge = ap.done.length ? orgNudge(ap.cats) : '';
+    Object.assign(thinking, botMsg({ ...r, actions: ap.risky }, { thinking: false, cats: ap.cats.length ? ap.cats : r.focus || [], undoable: ap.done.length > 0,
+      followups: [...(r.followups || []), nudge].filter(Boolean).slice(0, 3),
       text: [r.reply || (ap.done.length ? '' : 'Listo.'), sum, failed ? 'No pude aplicar esos cambios (no encontré los elementos). Dime cuál es y lo hago.' : '', ap.risky.length ? 'Para borrar, revisa y confirma abajo.' : ''].filter(Boolean).join('\n\n') }));
     if (ap.done.length) toast(`${ap.done.length} cambio${ap.done.length > 1 ? 's' : ''} guardado${ap.done.length > 1 ? 's' : ''}`, { undo: true });
     attachRefine(thinking, r);
@@ -2853,26 +3136,50 @@ const ACTIONS = {
   back: () => { if (UI.proj !== null) { UI.proj = null; UI.showDone = false; render(); window.scrollTo(0, 0); } else go('lists'); },
   proj: (el) => { UI.proj = el.dataset.g; UI.showDone = false; render(); window.scrollTo(0, 0); },
   lcMore: (el) => { const k = el.dataset.id; UI.expanded.has(k) ? UI.expanded.delete(k) : UI.expanded.add(k); render(); },
-  newProj: () => openSheet(`<h3>Nuevo proyecto</h3>
+  newProj: () => openSheet(`<h3>Nuevo proyecto en ${esc(catName(UI.cat))}</h3>
     <label class="lbl" for="pjName">Nombre</label><input class="in" id="pjName" placeholder="Ej: Útiles Kinder 2027" autocomplete="off">
     <div class="sheet-actions"><button class="btn" data-close>Cancelar</button><button class="btn primary" data-act="saveProj">Crear</button></div>`),
-  editProj: () => openSheet(`<h3>Editar proyecto</h3>
+  editProj: () => {
+    const list = cat(UI.cat)?.projs || [], k = list.indexOf(UI.proj), n = projItems(UI.cat, UI.proj).length;
+    openSheet(`<h3>Editar proyecto</h3>
     <label class="lbl" for="pjName">Nombre</label><input class="in" id="pjName" value="${esc(UI.proj)}" autocomplete="off">
     <label class="lbl" for="pjCat">Categoría</label><select class="in" id="pjCat">${catOptions(UI.cat)}</select>
-    <p class="help">Quitar el proyecto no borra nada: sus elementos pasan a General.</p>
-    <div class="sheet-actions" style="flex-wrap:wrap"><button class="btn danger" data-act="ungroupProj">Quitar proyecto</button><button class="btn primary" data-act="saveProj" data-old="${esc(UI.proj)}">Guardar</button></div>`),
+    ${k >= 0 && list.length > 1 ? `<label class="lbl">Orden</label><div class="pv-row"><button class="btn" data-act="projMove" data-dir="-1" ${k === 0 ? 'disabled' : ''}>${ic('up')} Subir</button><button class="btn" data-act="projMove" data-dir="1" ${k === list.length - 1 ? 'disabled' : ''}>${ic('down')} Bajar</button></div>` : ''}
+    <p class="help">Si le pones el nombre de otro proyecto, se combinan. "Quitar proyecto" no borra nada: sus elementos pasan a General.</p>
+    <div class="sheet-actions" style="flex-wrap:wrap"><button class="btn" data-act="ungroupProj">Quitar proyecto</button><button class="btn primary" data-act="saveProj" data-old="${esc(UI.proj)}">Guardar</button>
+      <button class="btn danger" style="flex-basis:100%" data-act="delProj">${ic('trash')} Eliminar proyecto${n ? ` y sus ${n} elemento${n > 1 ? 's' : ''}` : ''}</button></div>`);
+  },
   saveProj: (el) => {
     const name = $('#pjName').value.trim().slice(0, 60); if (!name) return toast('Ponle un nombre');
+    if (gkey(name) === 'general') return toast('Usa otro nombre: "General" es para lo que no tiene proyecto');
     const old = el.dataset.old;
-    if (old === undefined) { closeSheet(); UI.proj = name; render(); return toast('Proyecto creado: agrega cosas arriba'); }
     snapshot();
+    if (old === undefined) {
+      const g = ensureProj(UI.cat, name); save(); closeSheet(); UI.proj = g; render();
+      return toast(g !== name ? `Ya existía: abrí ${g}` : 'Proyecto creado. Agrega cosas arriba');
+    }
     const cv = $('#pjCat').value, to = cv.startsWith('new:') ? ensureCategory(cv.slice(4)) : cv;
-    for (const i of projItems(UI.cat, old)) { i.group = name; i.cat = to; i.updated = Date.now(); }
-    save(); closeSheet(); UI.cat = to; UI.proj = name; render(); toast('Proyecto guardado', { undo: true });
+    const merged = projList(to).some((p) => p !== old && gkey(p) === gkey(name));
+    const g = renameProj(UI.cat, old, name, to);
+    save(); closeSheet(); UI.cat = to; UI.proj = g; render();
+    toast(merged ? `Combinado con ${g}` : 'Proyecto guardado', { undo: true });
+  },
+  projMove: (el) => {
+    const c = cat(UI.cat); if (!c?.projs) return;
+    const i = c.projs.indexOf(UI.proj), j = i + Number(el.dataset.dir);
+    if (i < 0 || j < 0 || j >= c.projs.length) return;
+    snapshot(); [c.projs[i], c.projs[j]] = [c.projs[j], c.projs[i]]; save();
+    const keep = $('#pjName').value; ACTIONS.editProj(); $('#pjName').value = keep;
   },
   ungroupProj: () => {
-    snapshot(); for (const i of projItems(UI.cat, UI.proj)) delete i.group;
+    snapshot(); removeProj(UI.cat, UI.proj, false);
     save(); closeSheet(); UI.proj = null; render(); toast('Proyecto quitado. Sus elementos están en General', { undo: true });
+  },
+  delProj: () => {
+    const n = projItems(UI.cat, UI.proj).length;
+    if (n && !confirm(`¿Eliminar "${UI.proj}" y sus ${n} elemento${n > 1 ? 's' : ''}? Podrás deshacerlo justo después.`)) return;
+    snapshot(); removeProj(UI.cat, UI.proj, true);
+    save(); closeSheet(); UI.proj = null; render(); toast('Proyecto eliminado', { undo: true });
   },
   diag: () => runDiag(),
   saveProd: (el) => saveProducts(+el.dataset.i, [+el.dataset.j]),
@@ -2902,7 +3209,8 @@ const ACTIONS = {
   saveWhere: () => { snapshot(); S.profile.shopWhere = $('#whereIn').value.trim(); save(); toast('Ubicación guardada'); },
   clearDone: (el) => {
     snapshot();
-    S.items = S.items.filter((i) => !(i.cat === el.dataset.id && i.done)); save(); render();
+    const g = el.dataset.g;
+    S.items = S.items.filter((i) => !(i.cat === el.dataset.id && i.done && (g === undefined || (i.group || '') === g))); save(); render();
     toast('Completados borrados', { undo: true });
   },
   newCat: () => openCatEditor(null),
@@ -2920,8 +3228,33 @@ const ACTIONS = {
     if (keep.color) { $$('#sheet .sw').forEach((b) => b.classList.toggle('on', b.dataset.pickColor === keep.color)); }
   },
   delCat: (el) => {
-    snapshot(); removeList(el.dataset.id); save(); closeSheet(); go('lists');
-    toast('Categoría eliminada', { undo: true });
+    const id = el.dataset.id, n = S.items.filter((i) => i.cat === id).length;
+    if (!n) { snapshot(); removeList(id); save(); closeSheet(); go('lists'); return toast('Categoría eliminada', { undo: true }); }
+    openSheet(`<h3>Eliminar ${esc(catName(id))}</h3>
+      <p class="muted small" style="margin:0 2px">Tiene ${n} elemento${n > 1 ? 's' : ''}${projList(id).length ? ` en ${projList(id).length} proyecto${projList(id).length > 1 ? 's' : ''}` : ''}. ¿Qué hago con ellos?</p>
+      <label class="lbl" for="dcTo">Pasarlos a</label>
+      <select class="in" id="dcTo">${S.cats.filter((c) => c.id !== id).map((c) => `<option value="${c.id}" ${c.id === 'notas' ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
+      <div class="sheet-actions" style="flex-wrap:wrap"><button class="btn" data-close>Cancelar</button><button class="btn primary" data-act="delCatGo" data-id="${id}">Mover y eliminar</button>
+      <button class="btn danger" style="flex-basis:100%" data-act="delCatGo" data-id="${id}" data-all="1">${ic('trash')} Eliminar todo, también los elementos</button></div>`);
+  },
+  delCatGo: (el) => {
+    const id = el.dataset.id, to = $('#dcTo')?.value || 'notas', all = !!el.dataset.all;
+    if (all && !confirm('¿Eliminar la categoría con todos sus elementos? Podrás deshacerlo justo después.')) return;
+    snapshot(); removeList(id, to, all); save(); closeSheet(); go('lists');
+    toast(all ? 'Categoría eliminada' : `Categoría eliminada. Todo pasó a ${catName(to)}`, { undo: true });
+  },
+  mergeCat: (el) => {
+    const id = el.dataset.id;
+    openSheet(`<h3>Combinar ${esc(catName(id))}</h3>
+      <p class="muted small" style="margin:0 2px">Sus proyectos y elementos pasan a la categoría que elijas y ${esc(catName(id))} desaparece.</p>
+      <label class="lbl" for="mgTo">Combinar con</label>
+      <select class="in" id="mgTo">${S.cats.filter((c) => c.id !== id).map((c) => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select>
+      <div class="sheet-actions"><button class="btn" data-close>Cancelar</button><button class="btn primary" data-act="mergeCatGo" data-id="${id}">Combinar</button></div>`);
+  },
+  mergeCatGo: (el) => {
+    const id = el.dataset.id, to = $('#mgTo').value, from = catName(id);
+    snapshot(); const n = mergeCats(id, to); save(); closeSheet(); go('lists', { cat: to });
+    toast(`${from} combinada con ${catName(to)} (${n} elemento${n === 1 ? '' : 's'})`, { undo: true });
   },
   reviewApply: () => applyReview(),
   listAsk: (el) => askAbout(`En la categoría [categoría id:${UI.cat}] "${catName(UI.cat)}"${UI.proj ? `, proyecto "${UI.proj}" (usa group "${UI.proj}")` : ''}:`, $('#quickIn'), el),
@@ -2929,7 +3262,12 @@ const ACTIONS = {
   retryAsk: (el) => { const i = +el.dataset.i, q = CHAT[i]?.retry; if (!q) return; CHAT.splice(i - 1, 2); doAsk(q); },
   chatReview: (el) => {
     const m = CHAT[+el.dataset.i]; if (!m?.actions?.length) return;
-    openReview(m.actions, '', () => { m.applied = true; });
+    openReview(m.actions, '', (done) => { m.applied = true; m.undoable = true; m.cats = [...new Set([...(m.cats || []), ...done.map((d) => d.cat)])].filter((c) => cat(c)).slice(0, 3); });
+  },
+  organize: (el) => {
+    const c = el.dataset.id || '';
+    go('ask');
+    doAsk(c ? `Ordena ${catName(c)}: ¿cómo la organizo mejor?` : '¿Cómo puedo organizar mejor mis categorías?', { organize: true, cat: c });
   },
   saveKey: async (el) => {
     const k = $('#keyIn').value.trim();
@@ -2949,7 +3287,7 @@ const ACTIONS = {
   import: () => $('#fileBackup').click(),
   wipe: () => {
     if (!confirm('Esto borra TODA tu memoria de este teléfono y no se puede deshacer. ¿Seguro? (Exporta un respaldo antes si lo necesitas)')) return;
-    S = freshData(); save(); CHAT = []; UNDO = null; openOnboarding(0);
+    S = freshData(); save(); CHAT = []; UNDO = []; openOnboarding(0);
   },
 };
 
