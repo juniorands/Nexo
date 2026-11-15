@@ -1,6 +1,6 @@
 // Service worker: makes Nexo open without internet.
 // Bump VERSION whenever you upload a new index.html so phones pick up the update.
-const VERSION = 'nexo-v7.1';
+const VERSION = 'nexo-v7.3';
 const FONTS = 'nexo-fonts';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png', './avatar.png'];
 

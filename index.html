@@ -65,6 +65,7 @@ h1,h2,h3{font-family:var(--font); font-weight:600}
 .avatar img{width:100%; height:100%; object-fit:cover; display:block}
 .top-row{display:flex; align-items:center; gap:8px; padding:14px 0 4px}
 .top-row h1{font-size:28px; margin:0; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; letter-spacing:-.02em}
+.top-row h1.long{font-size:22px; white-space:normal; line-height:1.15; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical}
 .back{color:var(--mint); font-size:17px; padding:6px 2px; display:flex; align-items:center; gap:2px}
 .sec{font-size:21px; margin:28px 2px 12px; letter-spacing:-.015em}
 .sec-row{display:flex; align-items:baseline; justify-content:space-between}
@@ -449,6 +450,73 @@ label.lbl{display:block; font-size:12px; font-weight:600; color:var(--muted); ma
 #toast button{font-weight:700; color:var(--violet)}
 .spin{display:inline-block; width:16px; height:16px; border:2px solid currentColor; border-right-color:transparent; border-radius:99px; animation:sp .7s linear infinite; flex:none}
 @keyframes sp{to{transform:rotate(360deg)}}
+/* v7.2: documentos ordenados, listas por secciones, notas con formato */
+.lc-sec{border-top:1px solid var(--line)}
+.lc-sec:first-of-type{margin-top:6px}
+.lc-sec-h{display:flex; align-items:center; gap:10px; width:100%; padding:12px 2px; text-align:left; color:var(--text)}
+.lc-sec-n{flex:1; min-width:0; font-weight:600; font-size:15px}
+.lc-sec-ct{display:inline-flex; align-items:center; gap:4px; font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums}
+.lc-sec-ct.full{color:var(--mint)}
+.lc-sec-h > .ic{color:var(--faint)}
+.lc-sec.open .lc-items{margin-top:0; padding-left:4px}
+.ck-row.sec{grid-template-columns:1fr auto}
+.ck-row.sec .ck-t{font-weight:700; color:var(--violet-l)}
+.note-links{display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:600; opacity:.75}
+.note-view{background:var(--surface2); border-radius:16px; padding:6px 14px 10px; font-size:15px; line-height:1.45; max-height:56vh; overflow:auto}
+.note-view h4{margin:14px 0 4px; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--violet-l)}
+.note-view p{margin:6px 0}
+.note-view ul{margin:4px 0; padding-left:18px}
+.note-view li{margin:3px 0}
+.note-view b{color:var(--text)}
+.nlink{display:flex; align-items:center; gap:10px; margin:6px 0; padding:10px 12px; border-radius:12px; background:var(--surface); color:var(--text); text-decoration:none}
+.nlink > span{flex:1; min-width:0; display:flex; flex-direction:column}
+.nlink b{font-weight:600; font-size:14.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.nlink small{font-size:12px; color:var(--muted)}
+.nlink > .ic:first-child{color:var(--mint)}
+.tnav{display:flex; gap:8px; overflow-x:auto; margin:14px -16px 0; padding:0 16px; scrollbar-width:none}
+.tnav::-webkit-scrollbar{display:none}
+.tnav-chip{flex:none; display:inline-flex; align-items:center; gap:6px; padding:8px 12px; border-radius:99px; background:var(--surface); color:var(--muted); font-size:13.5px}
+.tnav-chip b{color:var(--text); font-weight:600}
+.im-list{display:flex; flex-direction:column; gap:6px; max-height:42vh; overflow:auto; padding-right:2px}
+.im-row{display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:14px; background:var(--surface2)}
+.im-row input{flex:none; width:20px; height:20px; accent-color:var(--mint)}
+.im-ic{flex:none; width:30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center; background:var(--surface); color:var(--violet-l)}
+.im-ic.t-evento{background:var(--violet); color:#fff}
+.im-ic.t-lista,.im-ic.t-compras{color:var(--mint)}
+.im-ic.t-nota{background:var(--lav); color:var(--lav-ink)}
+.im-b{flex:1; min-width:0; display:flex; flex-direction:column}
+.im-b b{font-weight:600; font-size:14.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.im-b small{font-size:12.5px; color:var(--muted)}
+.im-row:has(input:not(:checked)){opacity:.45}
+/* Nota como página */
+.sheet.note-sheet{min-height:92vh; background:#161618; padding-left:22px; padding-right:22px}
+.np-bar{position:sticky; top:-8px; z-index:2; display:flex; align-items:center; gap:8px; margin:0 -22px; padding:8px 22px 10px; background:#161618}
+.np-crumb{flex:1; min-width:0; display:flex; align-items:center; gap:6px; font-size:13px; color:var(--muted)}
+.np-crumb span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.np-btn{display:inline-flex; align-items:center; gap:6px; padding:8px 14px; border-radius:99px; background:var(--surface2); color:var(--text); font-size:14.5px; font-weight:500}
+.np-btn.primary{background:var(--mint); color:var(--mint-ink); font-weight:600}
+.np-title{font-size:30px; line-height:1.15; letter-spacing:-.02em; font-weight:700; margin:18px 0 6px}
+.np-meta{font-size:13px; color:var(--faint); margin-bottom:18px}
+.np-body{font-size:17px; line-height:1.6; color:#e6e6ee}
+.np-body p{margin:0 0 10px}
+.np-body h4{font-size:19px; font-weight:700; letter-spacing:-.01em; color:var(--text); text-transform:none; margin:26px 0 8px}
+.np-body h4:first-child{margin-top:0}
+.np-body ul{margin:0 0 12px; padding-left:22px}
+.np-body li{margin:4px 0; padding-left:2px}
+.np-body li::marker{color:var(--faint)}
+.np-body b{color:var(--text); font-weight:600}
+.np-body .nlink{background:var(--surface); margin:8px 0}
+.np-body .lnk{color:var(--mint)}
+.np-empty{color:var(--faint)}
+.np-ask{margin-top:28px}
+.np-foot{display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; padding-top:14px; border-top:1px solid var(--line)}
+.np-link{display:inline-flex; align-items:center; gap:6px; padding:8px 4px; font-size:14px; color:var(--muted)}
+.np-link.danger{color:var(--danger); margin-left:auto}
+.np-title-in,.np-text{display:block; width:100%; border:0; outline:0; background:transparent; color:var(--text); font-family:var(--font); resize:none; padding:0; overflow:hidden}
+.np-title-in{font-size:30px; line-height:1.15; letter-spacing:-.02em; font-weight:700; margin:18px 0 10px}
+.np-text{font-size:17px; line-height:1.6; min-height:50vh}
+.np-tools{display:flex; gap:6px; margin:0 0 14px; overflow-x:auto}
+.np-tool{flex:none; display:inline-flex; align-items:center; gap:5px; padding:6px 11px; border-radius:99px; background:var(--surface); color:var(--muted); font-size:13px}
 </style>
 </head>
 <body>
@@ -608,7 +676,7 @@ function repairData(d) {
     if (!ids.has(i.cat)) i.cat = 'notas';
     i.title = String(i.title).trim(); i.notes = String(i.notes || ''); i.date = isYmd(i.date) ? i.date : '';
     if (i.checks && !Array.isArray(i.checks)) delete i.checks;
-    if (i.checks) i.checks = i.checks.filter((c) => c && String(c.t || '').trim()).map((c) => ({ id: c.id || uid(), t: String(c.t).trim(), qty: String(c.qty || ''), url: /^https?:\/\//.test(c.url || '') ? c.url : '', price: String(c.price || ''), done: !!c.done }));
+    if (i.checks) i.checks = i.checks.filter((c) => c && String(c.t || '').trim()).map((c) => ({ id: c.id || uid(), t: String(c.t).trim(), qty: String(c.qty || ''), url: /^https?:\/\//.test(c.url || '') ? c.url : '', price: String(c.price || ''), done: !!c.done, ...(c.sec ? { sec: true } : {}) }));
     const g = String(i.group || '').trim().replace(/\s+/g, ' ');
     if (!g || gkey(g) === 'general') delete i.group; else i.group = g;
     i.created = +i.created || Date.now(); i.updated = +i.updated || i.created;
@@ -696,9 +764,10 @@ function cleanChecks(list) {
     if (!c || typeof c !== 'object') return null;
     const t = String(c.t ?? c.text ?? c.texto ?? c.name ?? c.nombre ?? c.item ?? c.title ?? c.titulo ?? c.producto ?? '').replace(/^\s*([-*•]|\d+[.)])\s*/, '').trim().slice(0, 140);
     if (!t) return null;
+    if (c.sec) return { id: uid(), t, sec: true, done: false };
     const url = String(c.url ?? c.link ?? c.enlace ?? '');
     return { id: uid(), t, qty: String(c.qty ?? c.cantidad ?? c.quantity ?? '').trim().slice(0, 20), url: /^https?:\/\//.test(url) ? url : '', price: String(c.price ?? c.precio ?? '').trim().slice(0, 30), done: !!(c.done ?? c.hecho) };
-  }).filter(Boolean).slice(0, 120);
+  }).filter(Boolean).slice(0, 200);
 }
 const shopLink = (t) => `https://www.google.com/search?tbm=shop&gl=${shopCountry().gl}&q=${encodeURIComponent(t)}`;
 const itemUrl = (it) => it.url || (String(it.notes || '').match(/https?:\/\/[^\s<>"']+/) || [])[0] || '';
@@ -1561,8 +1630,8 @@ function relScore(i, words) {
 }
 function itemLine(i, full) {
   let s = `- [id:${i.id}] (${itemType(i)}${i.group ? ', proyecto: ' + i.group : ''}) ${i.done ? '[hecho] ' : ''}${i.title}` + (i.date ? ` (fecha: ${i.date}${i.repeat === 'yearly' ? ', cada año' : ''})` : '');
-  if (!full) return s + (i.checks?.length ? ` — ${i.checks.length} ítems` : '');
-  return s + (i.checks?.length ? ` — ítems: ${i.checks.map((c) => (c.done ? '[x] ' : '') + c.t + (c.qty ? ' x' + c.qty : '')).join('; ').slice(0, 600)}` : '') +
+  if (!full) return s + (i.checks?.length ? ` — ${i.checks.filter((c) => !c.sec).length} ítems` : '');
+  return s + (i.checks?.length ? ` — ítems: ${i.checks.map((c) => c.sec ? `| ${c.t}:` : (c.done ? '[x] ' : '') + c.t + (c.qty ? ' x' + c.qty : '')).join('; ').slice(0, 900)}` : '') +
     (i.price || i.url ? ` — ${[i.price, i.store, i.url].filter(Boolean).join(' · ')}` : '') +
     (i.notes ? ` — ${i.notes.replace(/\s*\n\s*/g, ' / ').slice(0, 400)}` : '') +
     ` {guardado ${ymd(new Date(i.created))}}`;
@@ -2119,6 +2188,296 @@ function localSearch(q) {
     .filter((x) => x[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, 12).map((x) => x[0]);
 }
 
+/* ============================== importar documentos largos ==============================
+   Un documento con secciones (itinerario, checklist, links, notas) se ordena en el teléfono, sin IA:
+   la IA corta las respuestas largas y se perdían partes. Cada sección pasa a ser el elemento que le corresponde. */
+const EMOJI_RE = /[\u{1F1E6}-\u{1F1FF}\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}\u{20E3}]/gu;
+const SEP_RE = /^[\s━─═\-_*=~·•]{3,}$/;
+const WDAY = '(?:lunes|martes|miercoles|jueves|viernes|sabado|domingo)';
+const cleanLine = (s) => String(s).replace(EMOJI_RE, '').replace(/\s+/g, ' ').trim();
+const isCapsHead = (s) => s.length >= 3 && s.length <= 60 && !/https?:/.test(s) && /[A-ZÁÉÍÓÚÑ]{3}/.test(s) && s === s.toUpperCase() && !/[.]$/.test(s);
+const startsWithDate = (s) => new RegExp(`^(${WDAY},?\\s+)?\\d{1,2}(\\s+de)?\\s+(${MONTHS.join('|')})\\b`).test(norm(s).replace(/setiembre/g, 'septiembre'));
+const onlyDate = (s) => new RegExp(`^(${WDAY},?\\s+)?\\d{1,2}\\s+de\\s+(${MONTHS.join('|')})(\\s+(de|del)\\s+\\d{4})?[.:]?$`).test(norm(s).replace(/setiembre/g, 'septiembre'));
+function docYear(text) {
+  const c = {}; for (const y of String(text).match(/\b20\d{2}\b/g) || []) c[y] = (c[y] || 0) + 1;
+  return +(Object.entries(c).sort((a, b) => b[1] - a[1])[0] || [0])[0] || 0;
+}
+function dateIn(s, year) {
+  const d = findDate(s); if (!d) return '';
+  return year && !/\b20\d{2}\b/.test(s) ? `${year}${d.slice(4)}` : d;
+}
+function looksLikeDoc(text) {
+  const t = String(text || '');
+  if (t.length < 400) return false;
+  const lines = t.split('\n').map(cleanLine);
+  const heads = t.split('\n').filter((l) => /^\s*#{1,4}\s+\S/.test(l)).length;
+  const boxes = lines.filter((l) => /^[-*•]?\s*\[[ xX✓]?\]\s+\S/.test(l)).length;
+  const bullets = lines.filter((l) => /^[-*•]\s+\S/.test(l)).length;
+  const caps = lines.filter(isCapsHead).length;
+  return heads >= 2 || boxes >= 4 || (caps >= 3 && bullets >= 6);
+}
+function docLine(l) {
+  let m;
+  if ((m = l.match(/^[-*•]?\s*\[([ xX✓]?)\]\s*(.+)/))) return { k: 'box', t: m[2].replace(/[.;]$/, ''), done: !!m[1].trim() };
+  if (/^https?:\/\/\S+$/.test(l)) return { k: 'url', u: l };
+  if (onlyDate(l.replace(/^[-*•]\s+/, ''))) return { k: 'date', t: l.replace(/^[-*•]\s+/, '') };
+  if (/^[^:]{2,50}:$/.test(l) && !/^[-*•]\s/.test(l)) return { k: 'label', t: l };
+  if (isCapsHead(l)) return { k: 'head', t: l };
+  if ((m = l.match(/^(?:[-*•]|\d+[.)])\s+(.*)/))) return { k: 'li', t: m[1] };
+  return { k: 'p', t: l };
+}
+function parseDoc(text) {
+  const doc = { title: '', tags: [], secs: [] };
+  let sec = null, sub = null;
+  const newSec = (title) => { sec = { title, subs: [] }; doc.secs.push(sec); sub = null; };
+  const curSub = () => { if (!sec) newSec(''); if (!sub) { sub = { title: '', lines: [] }; sec.subs.push(sub); } return sub; };
+  const TAG = /(^|\s)#[\p{L}\d_]+/gu;
+  for (const r of String(text).replace(/\r/g, '').split('\n')) {
+    if (/#[\p{L}]/u.test(r) && !/^\s*#{1,6}\s/.test(r) && !r.replace(TAG, '').trim()) { doc.tags.push(...r.match(TAG).map((x) => x.trim().slice(1))); continue; }
+    const l = cleanLine(r);
+    if (!l || SEP_RE.test(l)) { if (sub) sub.lines.push({ k: 'blank' }); continue; }
+    const h = r.match(/^\s*(#{1,6})\s+(.*)$/);
+    if (h) {
+      const lvl = h[1].length, t = cleanLine(h[2]); if (!t) continue;
+      if (lvl === 1 && !doc.title) { doc.title = t; continue; }
+      if (lvl <= 2) { newSec(t); continue; }
+      if (lvl === 3) { if (!sec) newSec(''); sub = { title: t, lines: [] }; sec.subs.push(sub); continue; }
+      curSub().lines.push({ k: 'head', t }); continue;
+    }
+    if (!doc.title && !doc.secs.length && l.length <= 90 && !/^[-*•[]/.test(l)) { doc.title = l.replace(/:$/, ''); continue; }
+    curSub().lines.push(docLine(l));
+  }
+  return doc;
+}
+/* Texto de una nota: subtítulos "## ", viñetas "- " y "Nombre: link" en una sola línea. */
+function docText(L) {
+  const out = [];
+  for (let k = 0; k < L.length; k++) {
+    const x = L[k];
+    let s = x.k === 'head' ? '## ' + x.t : x.k === 'li' || x.k === 'box' ? '- ' + x.t : x.k === 'url' ? x.u : x.k === 'blank' ? '' : x.t;
+    if (x.k === 'label') {
+      let j = k + 1; while (L[j]?.k === 'blank') j++;
+      if (L[j]?.k === 'url') { s = x.t + ' ' + L[j].u; k = j; }
+    }
+    if (s === '' && (!out.length || out[out.length - 1] === '')) continue;
+    out.push(s);
+  }
+  while (out.length && out[out.length - 1] === '') out.pop();
+  return out.join('\n');
+}
+const prettyTitle = (s) => {
+  s = cleanLine(s).replace(/[:.]$/, '');
+  if (s !== s.toUpperCase()) return s;
+  // "VUELO 01 — LA 710" → "Vuelo 01 — LA 710" (códigos cortos quedan en mayúscula)
+  const COMMON = /^(DE|DEL|LA|EL|LOS|LAS|Y|EN|AL|A|O|POR|CON|SIN|MIS|MI|TU|SU|QUE|UN|UNA|PARA)$/;
+  const cap = (w) => w.charAt(0) + w.slice(1).toLowerCase();
+  // Después de "—" suele venir un nombre ("JUNIOR MARTÍNEZ" → "Junior Martínez").
+  return s.split(/(\s+[—–|]\s+)/).map((seg, si) => {
+    if (/^\s+[—–|]\s+$/.test(seg)) return seg;
+    const ws = seg.split(' ');
+    return ws.map((w, i) => {
+      if (/\d/.test(w) || (/\d/.test(ws[i + 1] || '') && w.length <= 3)) return w; // códigos: LA 710, AM 332
+      if (w.length <= 3 && !COMMON.test(w) && /^[A-ZÁÉÍÓÚÑ]+$/.test(w) && i > 0) return w; // siglas: ATV, SCL
+      if (i === 0) return cap(w);
+      return si > 0 && ws.length <= 3 && !COMMON.test(w) ? cap(w) : w.toLowerCase();
+    }).join(' ');
+  }).join('');
+};
+const NOT_EVENT = /^(resumen|importante|nota|notas|total|links?|info|informaci|detalle|observaci|pendiente)/;
+function fieldOf(lines, re) {
+  const l = lines.find((x) => (x.k === 'li' || x.k === 'p') && re.test(norm(x.t.split(':')[0])) && x.t.includes(':'));
+  return l ? l.t.slice(l.t.indexOf(':') + 1).trim() : '';
+}
+const placeShort = (s) => (s.match(/\(([A-Z]{3})\)/) || [])[1] || s.split(/[,(]/)[0].trim();
+/* Bloques bajo una fecha ("Jueves 4 de febrero" → "VUELO 01 …") se vuelven recordatorios con esa fecha. */
+function datedBlocks(L, year) {
+  const events = [], rest = [];
+  let date = '', dateTok = null, block = null;
+  for (const x of L) {
+    if (x.k === 'date') { date = dateIn(x.t, year); dateTok = x; block = null; continue; }
+    if (x.k === 'head' && date) {
+      block = NOT_EVENT.test(norm(x.t)) ? null : { head: x.t, date, lines: [] };
+      if (block) { events.push(block); dateTok = null; } else { if (dateTok) { rest.push(dateTok); dateTok = null; } rest.push(x); }
+      continue;
+    }
+    if (block) block.lines.push(x);
+    else if (x.k === 'blank' && dateTok) continue;
+    else { if (dateTok) { rest.push(dateTok); dateTok = null; } rest.push(x); }
+  }
+  const ok = events.filter((b) => b.lines.some((y) => /\d{1,2}[:.]\d{2}/.test(y.t || '')));
+  for (const b of events) if (!ok.includes(b)) rest.push({ k: 'head', t: b.head }, ...b.lines);
+  return {
+    events: ok.map((b) => {
+      const o = fieldOf(b.lines, /^(origen|desde|sale de|salida desde)$/), d = fieldOf(b.lines, /^(destino|hasta|llega a)$/);
+      return { type: 'evento', title: prettyTitle(b.head) + (o && d ? ` · ${placeShort(o)} → ${placeShort(d)}` : ''), date: b.date, notes: docText(b.lines) };
+    }),
+    rest,
+  };
+}
+const SHOP_SEC = /(compra|supermercado|shopping|mercado|despensa)/;
+function buildImport(doc, text) {
+  const year = docYear(text), items = [];
+  for (const sec of doc.secs) {
+    const boxSubs = [], left = [];
+    for (const sub of sec.subs) {
+      const L = sub.lines, filled = L.filter((x) => x.k !== 'blank');
+      if (!filled.length) continue;
+      const boxes = filled.filter((x) => x.k === 'box').length;
+      if (boxes >= 2 && boxes >= filled.length * 0.6) { boxSubs.push(sub); continue; }
+      if (sub.title && startsWithDate(sub.title)) {
+        const parts = sub.title.split(/\s+[—–-]\s+/);
+        items.push({ type: 'evento', title: parts.length > 1 ? prettyTitle(parts.slice(1).join(' · ')) : `Plan del ${parts[0].split(' ')[0].toLowerCase()}`, date: dateIn(sub.title, year), notes: docText(L) });
+        continue;
+      }
+      const ev = datedBlocks(L, year);
+      items.push(...ev.events);
+      if (ev.rest.some((x) => x.k !== 'blank')) left.push({ title: sub.title, lines: ev.rest });
+    }
+    if (boxSubs.length) {
+      const checks = [];
+      for (const s of boxSubs) {
+        if (boxSubs.length > 1 && s.title) checks.push({ t: prettyTitle(s.title), sec: true });
+        for (const x of s.lines) if (x.k === 'box') checks.push({ t: x.t, done: x.done });
+      }
+      const name = sec.title || boxSubs[0].title || doc.title || 'Lista';
+      items.push({ type: SHOP_SEC.test(norm(name)) ? 'compras' : 'lista', title: prettyTitle(boxSubs.length === 1 && boxSubs[0].title && sec.title ? `${sec.title} · ${boxSubs[0].title}` : name), checks });
+    }
+    if (left.length) {
+      const one = left.length === 1;
+      const notes = left.map((x) => (x.title && !(one && !sec.title) ? `## ${prettyTitle(x.title)}\n` : '') + docText(x.lines)).join('\n\n');
+      items.push({ type: 'nota', title: prettyTitle(sec.title || (one && left[0].title) || doc.title || 'Notas'), notes });
+    }
+  }
+  // Mismo título dos veces → se distinguen.
+  const seen = {};
+  for (const x of items) { const k = x.type + gkey(x.title); seen[k] = (seen[k] || 0) + 1; if (seen[k] > 1) x.title += ` (${seen[k]})`; }
+  return items;
+}
+const TOPICS = [
+  [/(viaje|travel|vuelo|flight|hotel|airbnb|pasaporte|itinerario|vacacion)/, 'Viajes', 'plane'],
+  [/(colegio|school|kinder|utiles|escolar)/, 'Colegio', 'book'],
+  [/(trabajo|work|oficina|cliente|offsite|equipo)/, 'Trabajo', 'briefcase'],
+  [/(casa|hogar|home|mudanza|departamento)/, 'Casa', 'home'],
+  [/(salud|medic|doctor|clinica|dentista)/, 'Salud', 'health'],
+  [/(receta|cocina|ingrediente)/, 'Recetas', 'cup'],
+  [/(gasto|presupuesto|finanza|banco|cuenta)/, 'Finanzas', 'dollar'],
+  [/(mascota|perr|gato|veterinari)/, 'Mascotas', 'paw'],
+];
+function guessImportCat(doc, text) {
+  const head = norm([doc.title, ...doc.tags].join(' '));
+  const words = new Set(gkey([doc.title, ...doc.tags].join(' ')).split(' ').filter((w) => w.length > 2));
+  let best = null, bestS = 0;
+  for (const c of S.cats) {
+    if (c.id === 'perfil' || c.id === 'notas') continue;
+    const cw = gkey([c.name, ...projList(c.id)].join(' ')).split(' ').filter((w) => w.length > 2);
+    const s = cw.filter((w) => words.has(w)).length;
+    if (s > bestS) { best = c; bestS = s; }
+  }
+  if (best && bestS >= 2) return { id: best.id };
+  const topic = TOPICS.find(([re]) => re.test(head));
+  if (topic) { const f = findCat(topic[1]); return f ? { id: f.id } : { id: '', newName: topic[1], icon: topic[2] }; }
+  if (best) return { id: best.id };
+  const n = norm(text), hit = RULES.find(([re, id]) => re.test(n) && cat(id));
+  if (hit) return { id: hit[1] };
+  const t2 = TOPICS.find(([re]) => re.test(n));
+  if (t2) { const f = findCat(t2[1]); return f ? { id: f.id } : { id: '', newName: t2[1], icon: t2[2] }; }
+  return { id: 'notas' };
+}
+function importProjName(doc, guess) {
+  const title = prettyTitle(doc.title || 'Documento');
+  const c = guess.id ? cat(guess.id) : null;
+  if (!c) return title;
+  const cw = new Set(gkey(c.name).split(' '));
+  const parts = title.split(/\s+[—–|-]\s+/);
+  const keep = parts.filter((p) => !gkey(p).split(' ').every((w) => cw.has(w)));
+  return (keep.length ? keep : parts).join(' — ');
+}
+let IMPORT = null;
+function openImport(text, opts = {}) {
+  const doc = parseDoc(text), items = buildImport(doc, text);
+  if (items.length < 2) return false;
+  const guess = opts.cat ? { id: opts.cat } : guessImportCat(doc, text);
+  const proj = opts.proj !== undefined && opts.proj !== null ? opts.proj : importProjName(doc, guess);
+  IMPORT = { items, onDone: opts.onDone, icon: guess.icon };
+  const order = items.map((x, k) => [x, k]).sort((a, b) => TYPE_ORDER.indexOf(a[0].type) - TYPE_ORDER.indexOf(b[0].type) || (a[0].date || '').localeCompare(b[0].date || ''));
+  const count = TYPE_ORDER.map((t) => [t, items.filter((x) => x.type === t).length]).filter((x) => x[1]);
+  const plural = { evento: ['recordatorio', 'recordatorios'], lista: ['lista con checks', 'listas con checks'], compras: ['lista de compras', 'listas de compras'], nota: ['nota', 'notas'], tarea: ['tarea', 'tareas'], producto: ['producto', 'productos'] };
+  const fmtD = (d) => parseYmd(d).toLocaleDateString('es-CL', { weekday: 'short', day: 'numeric', month: 'short' }).replace('.', '');
+  openSheet(`
+    <h3>Ordenar documento</h3>
+    <p class="help" style="margin-top:4px">Lo separé por secciones: ${count.map(([t, n]) => `<b>${n} ${plural[t][n > 1 ? 1 : 0]}</b>`).join(', ')}. Elige dónde guardarlo y quita lo que no quieras.</p>
+    <div class="pv-row" style="gap:10px">
+      <div style="flex:1"><label class="lbl" for="imCat">Categoría</label><select class="in" id="imCat">${guess.newName ? catOptions(guess.newName) : catOptions(guess.id)}</select></div>
+    </div>
+    <label class="lbl" for="imProj">Proyecto</label>
+    <input class="in" id="imProj" value="${esc(proj)}" placeholder="General">
+    <label class="lbl">Qué se va a guardar</label>
+    <div class="im-list">${order.map(([x, k]) => `<label class="im-row">
+      <input type="checkbox" data-imk="${k}" checked>
+      <span class="im-ic t-${x.type}">${ic(TYPE_SEC[x.type][1], 'sm')}</span>
+      <span class="im-b"><b>${esc(x.title)}</b><small>${esc(TYPE_NAMES[x.type])}${x.date ? ' · ' + esc(fmtD(x.date)) : ''}${x.checks ? ` · ${x.checks.filter((c) => !c.sec).length} ítems` : ''}${x.checks?.some((c) => c.sec) ? ` en ${x.checks.filter((c) => c.sec).length} secciones` : ''}</small></span>
+    </label>`).join('')}</div>
+    <p class="help">Si ya lo habías guardado en ese proyecto, se actualiza en vez de duplicarse y tus checks marcados se mantienen.</p>
+    <div class="sheet-actions"><button class="btn" data-close>Cancelar</button><button class="btn primary" data-act="importGo">Guardar todo</button></div>`);
+  return true;
+}
+function importGo() {
+  if (!IMPORT) return;
+  const cv = $('#imCat').value;
+  const picked = IMPORT.items.filter((_, k) => $(`#sheet [data-imk="${k}"]`)?.checked);
+  if (!picked.length) return toast('Marca al menos un elemento');
+  snapshot();
+  const catId = cv.startsWith('new:') ? ensureCategory(cv.slice(4), IMPORT.icon, 'grad') : cv;
+  const g = ensureProj(catId, $('#imProj').value);
+  let added = 0, updated = 0;
+  const t0 = Date.now();
+  for (const [k, x] of picked.entries()) {
+    const ex = S.items.find((i) => i.cat === catId && (i.group || '') === g && itemType(i) === x.type && gkey(i.title) === gkey(x.title));
+    // Se ven en el mismo orden del documento (lo más nuevo va primero).
+    if (!ex) { const it = addItem({ ...x, cat: catId, group: g }); if (it) { it.created = it.updated = t0 - k; added++; } continue; }
+    if (x.notes) ex.notes = x.notes;
+    if (x.date) ex.date = x.date;
+    if (x.checks) {
+      const was = new Map((ex.checks || []).filter((c) => !c.sec).map((c) => [gkey(c.t), c.done]));
+      const fresh = cleanChecks(x.checks).map((c) => (c.sec ? c : { ...c, done: was.get(gkey(c.t)) ?? c.done }));
+      const keys = new Set(fresh.map((c) => gkey(c.t)));
+      ex.checks = [...fresh, ...(ex.checks || []).filter((c) => !c.sec && !keys.has(gkey(c.t)))];
+      ex.done = ex.checks.filter((c) => !c.sec).every((c) => c.done);
+    }
+    ex.updated = Date.now(); updated++;
+  }
+  save();
+  const done = IMPORT.onDone; IMPORT = null;
+  if (done) done();
+  closeSheet();
+  go('lists', { cat: catId, proj: g || '' });
+  toast([added ? `${added} guardado${added > 1 ? 's' : ''}` : '', updated ? `${updated} actualizado${updated > 1 ? 's' : ''}` : ''].filter(Boolean).join(', ') + ` en ${catName(catId)}${g ? ' › ' + g : ''}`, { undo: true, ms: 5000 });
+}
+/* Nota con formato: subtítulos, viñetas, "Dato: valor" en negrita y links como botones. */
+function noteHtml(s) {
+  let html = '', list = false;
+  const close = () => { if (list) { html += '</ul>'; list = false; } };
+  const body = (t) => linkify(esc(t)).replace(/^([^:<]{2,40}):(\s|$)/, '<b>$1:</b>$2');
+  for (const raw of String(s || '').split('\n')) {
+    const l = raw.trim();
+    if (!l) { close(); continue; }
+    let m;
+    if ((m = l.match(/^#{1,4}\s+(.*)/))) { close(); html += `<h4>${esc(m[1])}</h4>`; continue; }
+    if ((m = l.match(/^(?:[-*•]\s+)?([^:]{1,60}):\s*(https?:\/\/\S+)$/)) || (m = l.match(/^(?:[-*•]\s+)?(https?:\/\/\S+)$/))) {
+      close();
+      const u = m[2] || m[1], label = m[2] ? m[1] : domainOf(u);
+      html += `<a class="nlink" href="${esc(u)}" target="_blank" rel="noopener">${ic('link', 'sm')}<span><b>${esc(label)}</b><small>${esc(domainOf(u))}</small></span>${ic('right', 'xs')}</a>`;
+      continue;
+    }
+    if ((m = l.match(/^(?:[-*•]|\d+[.)])\s+(.*)/))) { if (!list) { html += '<ul>'; list = true; } html += `<li>${body(m[1])}</li>`; continue; }
+    close(); html += `<p>${body(l)}</p>`;
+  }
+  close();
+  return html;
+}
+const noteSnippet = (s) => String(s || '').split('\n').map((l) => l.replace(/^#{1,4}\s+/, '').replace(/^[-*•]\s+/, '· ').replace(URL_RE, (u) => domainOf(u))).filter((l) => l.trim()).join('\n');
+const richNote = (s) => String(s || '').split('\n').filter((l) => l.trim()).length >= 4 || /^#{1,4}\s/m.test(s || '');
+
 /* ============================== vistas ============================== */
 const UI = { tab: 'home', cat: null, proj: null, showDone: false, closed: new Set(), expanded: new Set() };
 let pendingImg = null, pendingPdf = null;
@@ -2173,7 +2532,7 @@ function itemRow(it, showCat = true) {
   const d = effectiveDate(it);
   const t = itemType(it);
   const checkable = it.cat !== 'perfil' && it.repeat !== 'yearly';
-  const ck = it.checks || [];
+  const ck = (it.checks || []).filter((c) => !c.sec);
   const url = t === 'producto' ? itemUrl(it) : '';
   const sub = [
     showCat && c ? esc(c.name) + (it.group ? ' › ' + esc(it.group) : '') : '',
@@ -2192,20 +2551,40 @@ function itemRow(it, showCat = true) {
     </button>${url ? `<a class="lc-link" href="${esc(url)}" target="_blank" rel="noopener">${ic('link', 'xs')} Tienda</a>` : ''}${it.img ? `<img class="ri-thumb" src="${esc(it.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}</div>`;
 }
 /* Tarjeta de lista: checks marcables, progreso, link a tienda por ítem y agregar ítems ahí mismo. */
+/* Tarjeta de lista: checks marcables, progreso, secciones plegables (ej. Documentos, Tecnología), link a tienda por ítem y agregar ítems ahí mismo. */
 function listCard(it) {
-  const t = itemType(it), cks = it.checks || [], n = cks.filter((c) => c.done).length, d = effectiveDate(it);
+  const t = itemType(it), cks = it.checks || [], real = cks.filter((c) => !c.sec), n = real.filter((c) => c.done).length, d = effectiveDate(it);
+  const hasSec = cks.some((c) => c.sec), more = UI.expanded.has(it.id);
+  const row = (c, k) => `<li class="${c.done ? 'done' : ''}">
+      <button class="check sm" data-act="ck" data-id="${it.id}" data-k="${k}" aria-label="${c.done ? 'Desmarcar' : 'Marcar'} ${esc(c.t)}">${c.done ? ic('check', 'xs') : ''}</button>
+      <span class="lc-t">${esc(c.t)}${c.qty ? ` <span class="muted">· ${esc(c.qty)}</span>` : ''}${c.price ? ` <b class="ri-price">${esc(c.price)}</b>` : ''}</span>
+      ${t === 'compras' || c.url ? `<a class="lc-link" href="${esc(c.url || shopLink(c.t))}" target="_blank" rel="noopener">${ic(c.url ? 'link' : 'cart', 'xs')} ${c.url ? esc(storeName(c.url)) : 'Buscar'}</a>` : ''}
+    </li>`;
+  let body = '';
+  if (hasSec) {
+    const groups = []; let cur = { name: '', k: -1, items: [] };
+    cks.forEach((c, k) => { if (c.sec) { groups.push(cur); cur = { name: c.t, k, items: [] }; } else cur.items.push([c, k]); });
+    groups.push(cur);
+    body = groups.filter((gp) => gp.name || gp.items.length).map((gp) => {
+      const rows = gp.items.map(([c, k]) => row(c, k)).join('');
+      if (!gp.name) return `<ul class="lc-items">${rows}</ul>`;
+      const gn = gp.items.filter(([c]) => c.done).length, key = it.id + ':' + gp.k, isOpen = UI.expanded.has(key);
+      const full = gp.items.length && gn === gp.items.length;
+      return `<div class="lc-sec ${isOpen ? 'open' : ''}">
+        <button class="lc-sec-h" data-act="lcSec" data-k="${esc(key)}" aria-expanded="${isOpen}"><span class="lc-sec-n">${esc(gp.name)}</span><span class="lc-sec-ct ${full ? 'full' : ''}">${full ? ic('check', 'xs') : ''}${gn}/${gp.items.length}</span>${ic(isOpen ? 'up' : 'down', 'xs')}</button>
+        ${isOpen ? `<ul class="lc-items">${rows}</ul>` : ''}</div>`;
+    }).join('');
+  } else {
+    body = `<ul class="lc-items">${cks.map((c, k) => (cks.length > 8 && !more && k >= 6 ? '' : row(c, k))).join('')}</ul>
+    ${cks.length > 8 ? `<button class="lc-more" data-act="lcMore" data-id="${it.id}">${more ? 'Mostrar menos' : `Ver los ${cks.length} ítems`}</button>` : ''}`;
+  }
   return `<div class="lcard ${it.done ? 'done' : ''}">
     <button class="lc-head" data-act="open" data-id="${it.id}">
       <span class="lc-ic">${ic(t === 'compras' ? 'cart' : 'clipboard', 'sm')}</span>
       <span class="lc-title">${esc(it.title)}${d ? ` <span class="due ${dueClass(it)}">${relDate(d)}</span>` : ''}</span>
-      <span class="lc-ct">${n}/${cks.length}</span></button>
-    ${cks.length ? `<div class="lc-bar"><i style="width:${Math.round((n * 100) / cks.length)}%"></i></div>` : ''}
-    <ul class="lc-items">${cks.map((c, k) => (cks.length > 8 && !UI.expanded.has(it.id) && k >= 6 ? '' : `<li class="${c.done ? 'done' : ''}">
-      <button class="check sm" data-act="ck" data-id="${it.id}" data-k="${k}" aria-label="${c.done ? 'Desmarcar' : 'Marcar'} ${esc(c.t)}">${c.done ? ic('check', 'xs') : ''}</button>
-      <span class="lc-t">${esc(c.t)}${c.qty ? ` <span class="muted">· ${esc(c.qty)}</span>` : ''}${c.price ? ` <b class="ri-price">${esc(c.price)}</b>` : ''}</span>
-      ${t === 'compras' || c.url ? `<a class="lc-link" href="${esc(c.url || shopLink(c.t))}" target="_blank" rel="noopener">${ic(c.url ? 'link' : 'cart', 'xs')} ${c.url ? esc(storeName(c.url)) : 'Buscar'}</a>` : ''}
-    </li>`)).join('')}</ul>
-    ${cks.length > 8 ? `<button class="lc-more" data-act="lcMore" data-id="${it.id}">${UI.expanded.has(it.id) ? 'Mostrar menos' : `Ver los ${cks.length} ítems`}</button>` : ''}
+      <span class="lc-ct">${n}/${real.length}</span></button>
+    ${real.length ? `<div class="lc-bar"><i style="width:${Math.round((n * 100) / real.length)}%"></i></div>` : ''}
+    ${body}
     <form class="lc-add" data-form="ckAdd" data-id="${it.id}"><input class="in" placeholder="Agregar a esta lista…" aria-label="Agregar a ${esc(it.title)}"><button class="btn sq" aria-label="Agregar">${ic('plus', 'sm')}</button></form>
   </div>`;
 }
@@ -2386,7 +2765,7 @@ function viewCategory(id) {
     const its = projItems(id, g), open = its.filter((i) => !i.done);
     const counts = TYPE_ORDER.map((t) => [t, open.filter((i) => itemType(i) === t).length]).filter((x) => x[1]);
     const next = open.filter((i) => effectiveDate(i) && daysTo(effectiveDate(i)) >= 0).sort((a, b) => effectiveDate(a) - effectiveDate(b))[0];
-    const cks = its.flatMap((i) => i.checks || []), ckDone = cks.filter((x) => x.done).length;
+    const cks = its.flatMap((i) => i.checks || []).filter((x) => !x.sec), ckDone = cks.filter((x) => x.done).length;
     return `<button class="ptile ${g ? '' : 'general'}" data-act="proj" data-g="${esc(g)}">
       <span class="pt-ic t-${catColor(c)}">${ic(g ? 'folder' : c.icon, 'sm')}</span>
       <span class="pt-name">${esc(g || 'General')}</span>
@@ -2414,17 +2793,19 @@ function viewProject(id, g) {
     if (!list.length) return '';
     list = t === 'evento' ? list.sort((a, b) => (effectiveDate(a) || 0) - (effectiveDate(b) || 0)) : sortItems(list);
     const [name, icon] = TYPE_SEC[t];
-    const body = isListType(t) ? list.map(listCard).join('') : t === 'evento' ? `<div class="rem-list">${list.map((i) => remRow(i, false)).join('')}</div>` : `<div class="igrid">${list.map((i) => typeCard(i, t)).join('')}</div>`;
-    return `<section class="tsec"><h2 class="tsec-h">${ic(icon, 'sm')} ${name}<span class="ct">${list.length}</span></h2>${body}</section>`;
+    const evKey = 'ev:' + id + ':' + g, evAll = UI.expanded.has(evKey);
+    const body = isListType(t) ? list.map(listCard).join('') : t === 'evento' ? `<div class="rem-list">${(evAll ? list : list.slice(0, 6)).map((i) => remRow(i, false)).join('')}</div>${list.length > 6 ? `<button class="toggle-done" data-act="evMore" data-k="${esc(evKey)}">${evAll ? 'Ver menos' : `Ver los ${list.length}`}</button>` : ''}` : `<div class="igrid">${list.map((i) => typeCard(i, t)).join('')}</div>`;
+    return `<section class="tsec" id="tsec-${t}"><h2 class="tsec-h">${ic(icon, 'sm')} ${name}<span class="ct">${list.length}</span></h2>${body}</section>`;
   }).join('');
   return `
   <div class="top-row"><button class="back" data-act="back">${ic('left', 'sm')} ${esc(c.name)}</button></div>
-  <div class="top-row" style="padding-top:0"><h1>${esc(g || 'General')}</h1>${g ? `<button class="btn" data-act="editProj">${ic('pencil', 'sm')} Editar</button>` : ''}</div>
+  <div class="top-row" style="padding-top:0"><h1 class="${(g || '').length > 16 ? 'long' : ''}">${esc(g || 'General')}</h1>${g ? `<button class="btn" data-act="editProj">${ic('pencil', 'sm')} Editar</button>` : ''}</div>
   <form class="add-row" data-form="quickAdd">
     <input class="in" id="quickIn" placeholder="${hasAI() ? 'Agrega o pídele algo a Nexo…' : 'Agregar una tarea…'}" autocomplete="off" aria-label="Nuevo elemento">
     <button type="submit" class="btn primary sq" aria-label="Agregar">${ic('plus')}</button>
     ${hasAI() ? `<button type="button" class="btn ai sq" data-act="listAsk" aria-label="Pedírselo a Nexo">${SPARK.replace('<svg', '<svg class="ic"')}</button>` : ''}
   </form>
+  ${(() => { const ts = TYPE_ORDER.filter((t) => open.some((i) => itemType(i) === t)); return ts.length >= 2 ? `<div class="tnav">${ts.map((t) => `<button class="tnav-chip" data-act="tjump" data-t="${t}">${ic(TYPE_SEC[t][1], 'xs')} ${TYPE_SEC[t][0]} <b>${open.filter((i) => itemType(i) === t).length}</b></button>`).join('')}</div>` : ''; })()}
   ${secs || '<p class="empty">Este proyecto está vacío. Agrega algo arriba o pídeselo a Nexo.</p>'}
   ${done.length ? `<button class="toggle-done" data-act="toggleDone">${UI.showDone ? 'Ocultar' : 'Mostrar'} completados (${done.length})</button>
     ${UI.showDone ? `<div class="card list" style="margin-top:8px">${done.map((i) => itemRow(i, false)).join('')}</div>
@@ -2448,7 +2829,7 @@ function typeCard(it, t) {
   if (t === 'nota') return `<button class="icard note" data-act="open" data-id="${it.id}">
       <span class="note-ic">${ic('note', 'sm')}</span>
       <span class="ic-title">${esc(it.title)}</span>
-      ${it.notes ? `<span class="note-body">${esc(it.notes.replace(URL_RE, (u) => domainOf(u)))}</span>` : ''}
+      ${it.notes ? `<span class="note-body">${esc(noteSnippet(it.notes))}</span>` : ''}${(it.notes.match(URL_RE) || []).length ? `<span class="note-links">${ic('link', 'xs')} ${(it.notes.match(URL_RE) || []).length} link${(it.notes.match(URL_RE) || []).length > 1 ? 's' : ''}</span>` : ''}
     </button>`;
   if (t === 'producto') {
     const url = itemUrl(it);
@@ -2680,10 +3061,16 @@ function viewSettings() {
     <button class="set-row danger" data-act="wipe">${ic('trash')}<span class="nm">Borrar toda la memoria</span></button>
   </div>
   <p class="help">Tu información vive solo en este teléfono. Haz un respaldo de vez en cuando y guárdalo en iCloud Drive (Archivos).</p>
-  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v7.1</p>`;
+  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v7.3</p>`;
 }
 
 function afterRender() {
+  // Pegar un documento en el campo de una categoría o proyecto lo ordena ahí mismo (el campo de una línea borraría los saltos).
+  const qi = $('#quickIn');
+  if (qi) qi.addEventListener('paste', (e) => {
+    const t = e.clipboardData?.getData('text') || '';
+    if (looksLikeDoc(t) && openImport(t, { cat: UI.cat, proj: UI.proj !== null ? UI.proj : undefined })) e.preventDefault();
+  });
   if (UI.tab === 'ask') {
     const ta = $('#askIn');
     ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 140) + 'px'; });
@@ -2917,9 +3304,62 @@ function applyResult(r) {
 }
 
 /* Detalle de un elemento: todo editable + pedirle cambios a Nexo */
-function openItem(id) {
+/* Nota abierta como página (estilo Notion / Notas de iOS): título grande y el texto limpio. Editar cambia a modo escritura. */
+function openNote(id, edit = false) {
+  const it = getItem(id); if (!it) return;
+  const c = cat(it.cat);
+  const when = new Date(it.updated || it.created).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' });
+  const sh = openSheet(`<div class="np ${edit ? 'editing' : ''}">
+    <div class="np-bar">
+      <span class="np-crumb">${ic(c?.icon || 'note', 'xs')}<span>${esc(c?.name || 'Notas')}${it.group ? ' › ' + esc(it.group) : ''}</span></span>
+      ${edit
+        ? `<button class="np-btn" data-act="noteView" data-id="${it.id}">Cancelar</button><button class="np-btn primary" data-act="noteSave" data-id="${it.id}">Listo</button>`
+        : `<button class="np-btn" data-act="noteEditPage" data-id="${it.id}">${ic('pencil', 'xs')} Editar</button>`}
+    </div>
+    ${edit
+      ? `<textarea class="np-title-in" id="npTitle" rows="1" placeholder="Título">${esc(it.title)}</textarea>
+         <div class="np-tools"><button type="button" class="np-tool" data-act="noteFmt" data-p="## ">Subtítulo</button><button type="button" class="np-tool" data-act="noteFmt" data-p="- ">${ic('clipboard', 'xs')} Viñeta</button><button type="button" class="np-tool" data-act="noteFmt" data-p="Link: https://">${ic('link', 'xs')} Link</button></div>
+         <textarea class="np-text" id="npText" placeholder="Escribe aquí…">${esc(it.notes)}</textarea>`
+      : `<h2 class="np-title">${esc(it.title)}</h2>
+         <div class="np-meta">Editada el ${esc(when)}</div>
+         ${it.img ? `<img class="it-hero" src="${esc(it.img)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}
+         <div class="np-body">${it.notes ? noteHtml(it.notes) : '<p class="np-empty">Nota vacía. Toca Editar para escribir.</p>'}</div>
+         ${hasAI() ? `<form class="nexo-ask np-ask" data-form="itemAsk" data-id="${it.id}"><span class="nx">${SPARK}</span>
+           <input class="in" id="edAsk" placeholder="Pídele un cambio a Nexo…" autocomplete="off" aria-label="Pídele un cambio a Nexo">
+           <button class="btn ai sq" aria-label="Enviar a Nexo">${ic('up')}</button></form>` : ''}
+         <div class="np-foot">
+           <button class="np-link" data-act="noteForm" data-id="${it.id}">${ic('folder', 'xs')} Mover o cambiar tipo</button>
+           <button class="np-link danger" data-act="delItem" data-id="${it.id}">${ic('trash', 'xs')} Eliminar</button>
+         </div>`}
+  </div>`);
+  sh.classList.add('note-sheet');
+  if (edit) {
+    const grow = (el) => { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; };
+    for (const el of $$('.np-title-in, .np-text', sh)) { grow(el); el.addEventListener('input', () => grow(el)); }
+    const tx = $('#npText'); tx.focus(); tx.setSelectionRange(tx.value.length, tx.value.length);
+  }
+}
+function saveNote(id) {
+  const it = getItem(id); if (!it) return;
+  const title = $('#npTitle').value.replace(/\s+/g, ' ').trim();
+  if (!title) return toast('El título no puede estar vacío');
+  const notes = $('#npText').value.replace(/\s+$/, '');
+  if (title !== it.title || notes !== it.notes) { snapshot(); Object.assign(it, { title, notes, updated: Date.now() }); save(); render(); toast('Nota guardada', { undo: true }); }
+  openNote(id);
+}
+function noteFmt(prefix) {
+  const ta = $('#npText'); if (!ta) return;
+  const pos = ta.selectionStart, start = ta.value.lastIndexOf('\n', pos - 1) + 1;
+  const line = ta.value.slice(start, ta.value.indexOf('\n', start) < 0 ? undefined : ta.value.indexOf('\n', start));
+  const ins = line.trim() && prefix.startsWith('Link') ? '\n' + prefix : prefix;
+  const at = ins.startsWith('\n') ? (ta.value.indexOf('\n', pos) < 0 ? ta.value.length : ta.value.indexOf('\n', pos)) : start;
+  ta.value = ta.value.slice(0, at) + ins + ta.value.slice(at);
+  const caret = at + ins.length; ta.focus(); ta.setSelectionRange(caret, caret); ta.dispatchEvent(new Event('input'));
+}
+function openItem(id, form = false) {
   const it = getItem(id);
   if (!it) return;
+  if (!form && itemType(it) === 'nota') return openNote(id);
   openSheet(`
     <h3>Detalle</h3>
     ${it.img ? `<img class="it-hero" src="${esc(it.img)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : ''}
@@ -2933,7 +3373,7 @@ function openItem(id) {
     <div id="ckEd" ${isListType(itemType(it)) ? '' : 'hidden'}>
       <label class="lbl">Ítems</label>
       <div class="ck-list">${(it.checks || []).map(ckRowHtml).join('')}</div>
-      <button type="button" class="btn" data-act="ckNew">${ic('plus', 'sm')} Agregar ítem</button>
+      <div class="pv-row" style="gap:8px"><button type="button" class="btn" data-act="ckNew">${ic('plus', 'sm')} Agregar ítem</button><button type="button" class="btn" data-act="ckSec">${ic('plus', 'sm')} Sección</button></div>
     </div>
     <div class="pv-row" style="gap:10px">
       <div style="flex:1"><label class="lbl" for="edCat">Categoría</label><select class="in" id="edCat" onchange="grpOpts(this.value)">${catOptions(it.cat)}</select></div>
@@ -2949,8 +3389,9 @@ function openItem(id) {
     <div class="pv-row"><input type="date" class="in" id="edDate" value="${esc(it.date)}">
       <label class="btn" style="font-weight:500; gap:8px" data-for="evento"><input type="checkbox" id="edYearly" ${it.repeat === 'yearly' ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--mint)">Cada año</label></div></div>
     <label class="lbl" for="edNotes"><span data-for="nota">Contenido</span><span data-for="evento tarea lista compras producto">Notas</span></label>
-    <textarea class="in" id="edNotes" rows="4" placeholder="Marca, talla, precio, link, quién lo mencionó…">${esc(it.notes)}</textarea>
-    ${(() => { const us = [...new Set(it.notes.match(URL_RE) || [])]; return us.length ? `<div class="links">${us.map((u) => `<a class="btn" href="${esc(u)}" target="_blank" rel="noopener">${ic('link')}<span>Abrir ${esc(domainOf(u))}</span></a>`).join('')}</div>` : ''; })()}
+    ${richNote(it.notes) ? `<div class="note-view">${noteHtml(it.notes)}</div><button type="button" class="btn" data-act="noteEdit" style="margin-top:8px">${ic('pencil', 'sm')} Editar texto</button>` : ''}
+    <textarea class="in" id="edNotes" rows="${richNote(it.notes) ? 12 : 4}" ${richNote(it.notes) ? 'hidden' : ''} placeholder="Marca, talla, precio, link, quién lo mencionó…">${esc(it.notes)}</textarea>
+    ${richNote(it.notes) ? '' : (() => { const us = [...new Set(it.notes.match(URL_RE) || [])]; return us.length ? `<div class="links">${us.map((u) => `<a class="btn" href="${esc(u)}" target="_blank" rel="noopener">${ic('link')}<span>Abrir ${esc(domainOf(u))}</span></a>`).join('')}</div>` : ''; })()}
     <p class="help">Guardado el ${new Date(it.created).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' })}${it.pkey ? ' · Viene de tus datos iniciales' : ''}</p>
     <div class="sheet-actions" style="flex-wrap:wrap">
       ${it.date ? `<button class="btn" style="flex-basis:100%" data-act="ics" data-id="${it.id}" data-for="evento tarea lista compras">${ic('calplus')} Añadir al Calendario</button>` : ''}
@@ -2966,6 +3407,8 @@ function showTypeFields(t) {
   const ck = $('#ckEd'); if (ck) ck.hidden = !isListType(t);
 }
 function ckRowHtml(c) {
+  if (c.sec) return `<div class="ck-row sec" data-sec="1"><input class="in ck-t" value="${esc(c.t)}" placeholder="Nombre de la sección" aria-label="Sección">
+    <button type="button" class="btn sq" data-act="ckDel" aria-label="Quitar sección">${ic('x', 'sm')}</button></div>`;
   return `<div class="ck-row"><input type="checkbox" class="ck-done" ${c.done ? 'checked' : ''} aria-label="Hecho">
     <input class="in ck-t" value="${esc(c.t)}${c.qty ? ' · ' + esc(c.qty) : ''}" placeholder="Ítem">
     <button type="button" class="btn sq" data-act="ckDel" aria-label="Quitar ítem">${ic('x', 'sm')}</button>
@@ -2980,13 +3423,14 @@ function saveItem(id) {
   const type = $('#edType').value;
   if (type === 'nota' || type === 'producto') { $('#edDate').value = ''; $('#edYearly').checked = false; }
   const checks = $$('#ckEd .ck-row').map((r) => {
+    if (r.dataset.sec) { const t = $('.ck-t', r).value.trim(); return t ? { id: uid(), t, sec: true, done: false } : null; }
     const [t, qty] = $('.ck-t', r).value.split(' · ');
     const url = $('.ck-url', r).value.trim();
     return t.trim() ? { id: uid(), t: t.trim(), qty: (qty || '').trim(), url: /^https?:\/\//.test(url) ? url : '', price: '', done: $('.ck-done', r).checked } : null;
   }).filter(Boolean);
   const url = $('#edUrl').value.trim();
   Object.assign(it, { type, url: /^https?:\/\//.test(url) ? url : undefined, price: $('#edPrice').value.trim() || undefined });
-  if (isListType(type)) { it.checks = checks; if (checks.length) it.done = checks.every((c) => c.done); } else if (!checks.length) delete it.checks;
+  if (isListType(type)) { it.checks = checks; const real = checks.filter((c) => !c.sec); if (real.length) it.done = real.every((c) => c.done); } else if (!checks.length) delete it.checks;
   const cv = $('#edCat').value;
   Object.assign(it, {
     title, cat: cv.startsWith('new:') ? ensureCategory(cv.slice(4)) : cv, notes: $('#edNotes').value.trim(),
@@ -3051,6 +3495,8 @@ async function doCapture(btn) {
   const text = pdf ? `${typed || 'Organiza este documento: guarda cada fecha, evento, lista, compra o dato importante en la categoría y grupo que corresponden, con su fecha, y planifícalo para que no se me pase nada.'}\n\nCONTENIDO DEL PDF "${pdf.name}":\n${pdf.text.slice(0, PDF_MAX)}` : typed;
   const shown = pdf ? `${typed ? typed + '\n' : ''}(PDF: ${pdf.name})` : typed || '(imagen)';
   const clear = () => { pendingImg = null; pendingPdf = null; const t = $('#capText'); if (t) t.value = ''; };
+  // Documento largo con secciones (itinerario, checklist, links): se ordena entero en el teléfono, sin cortar nada.
+  if (!img && !pdf && looksLikeDoc(typed) && openImport(typed, { onDone: clear })) return;
   if (!hasAI()) {
     if (img) return toast('Para leer fotos, conecta la IA en Ajustes');
     return openReview(localDraft(text), '', clear);
@@ -3085,6 +3531,7 @@ function orgNudge(catIds) {
 }
 async function doAsk(q, opts = {}) {
   q = q.trim(); if (!q) return;
+  if (!opts.organize && looksLikeDoc(q) && openImport(q, { onDone: () => { const a = $('#askIn'); if (a) a.value = ''; } })) { const a = $('#askIn'); if (a) a.value = q; return; }
   // "Ordena Colegio en proyectos", "¿cómo ordeno mejor mis categorías?" → modo ordenar.
   if (!opts.organize && hasAI() && q.length < 160) {
     const nq = norm(q).replace(/^[¿\s]+/, '');
@@ -3204,10 +3651,21 @@ const ACTIONS = {
     toast(it.done ? 'Hecho' : 'Pendiente otra vez', { undo: true });
   },
   open: (el) => openItem(el.dataset.id),
+  noteEditPage: (el) => openNote(el.dataset.id, true),
+  noteView: (el) => openNote(el.dataset.id),
+  noteSave: (el) => saveNote(el.dataset.id),
+  noteForm: (el) => openItem(el.dataset.id, true),
+  noteFmt: (el) => noteFmt(el.dataset.p),
+  importGo: () => importGo(),
+  lcSec: (el) => { const k = el.dataset.k; UI.expanded.has(k) ? UI.expanded.delete(k) : UI.expanded.add(k); render(); },
+  noteEdit: (el) => { const ta = $('#edNotes'); if (!ta) return; ta.hidden = false; el.remove(); $('#sheet .note-view')?.remove(); ta.focus(); },
+  tjump: (el) => { const s = $('#tsec-' + el.dataset.t); if (s) window.scrollTo({ top: s.getBoundingClientRect().top + window.scrollY - 12, behavior: 'smooth' }); },
+  evMore: (el) => { const k = el.dataset.k; UI.expanded.has(k) ? UI.expanded.delete(k) : UI.expanded.add(k); render(); },
+  ckSec: () => { const box = $('#ckEd .ck-list'); if (!box) return; box.insertAdjacentHTML('beforeend', ckRowHtml({ t: '', sec: true })); $$('.ck-t', box).pop().focus(); },
   ck: (el) => {
     const it = getItem(el.dataset.id), c = it?.checks?.[+el.dataset.k]; if (!c) return;
     snapshot(); c.done = !c.done;
-    const all = it.checks.every((x) => x.done);
+    const all = it.checks.filter((x) => !x.sec).every((x) => x.done);
     if (all !== it.done) { it.done = all; if (all) toast(`Lista completa: ${it.title}`, { undo: true }); }
     it.updated = Date.now(); save(); render();
   },
