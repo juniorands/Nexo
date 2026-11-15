@@ -517,6 +517,20 @@ label.lbl{display:block; font-size:12px; font-weight:600; color:var(--muted); ma
 .np-text{font-size:17px; line-height:1.6; min-height:50vh}
 .np-tools{display:flex; gap:6px; margin:0 0 14px; overflow-x:auto}
 .np-tool{flex:none; display:inline-flex; align-items:center; gap:5px; padding:6px 11px; border-radius:99px; background:var(--surface); color:var(--muted); font-size:13px}
+.sheet-x{position:absolute; top:12px; right:12px; z-index:3; width:34px; height:34px; border-radius:99px; background:var(--surface2); color:var(--muted); display:flex; align-items:center; justify-content:center}
+.sheet > h3:first-of-type{padding-right:44px}
+.np-btn.icon{padding:8px; color:var(--muted)}
+.sheet{touch-action:pan-y}
+/* Categorías: cuadrícula o lista, botón Nueva flotante */
+.cats-top{display:flex; align-items:center; gap:10px}
+.cats-top h1{flex:1}
+.vtoggle{display:flex; padding:3px; border-radius:12px; background:var(--surface)}
+.vtoggle button{width:38px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center; color:var(--faint)}
+.vtoggle button[aria-pressed="true"]{background:var(--surface2); color:var(--text)}
+.cat-grid{margin-top:14px}
+.cat-grid .tile .ct{font-size:12.5px; line-height:1.3; opacity:.75}
+.fab{position:fixed; z-index:9; right:max(16px, calc(50% - 304px)); bottom:calc(var(--tabbar) + env(safe-area-inset-bottom) + 14px); display:inline-flex; align-items:center; gap:6px; height:52px; padding:0 20px 0 16px; border-radius:99px; background:var(--mint); color:var(--mint-ink); font-weight:600; font-size:16px; box-shadow:0 8px 24px rgba(0,0,0,.45)}
+.fab:active{transform:scale(.96)}
 </style>
 </head>
 <body>
@@ -609,6 +623,8 @@ const ICONS = {
   nav: '<path d="M3 11l18-8-8 18-2-8-8-2z"/>',
   key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  grid: '<rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/>',
+  rows: '<path d="M4 6h16M4 12h16M4 18h16"/>',
 };
 const ic = (name, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ICONS.folder}</svg>`;
 const SPARK = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C13.6 9.9 14.1 10.4 22 12C14.1 13.6 13.6 14.1 12 22C10.4 14.1 9.9 13.6 2 12C9.9 10.4 10.4 9.9 12 2Z"/></svg>';
@@ -2731,22 +2747,32 @@ function catSub(c) {
   const np = projList(c.id).length, n = pendingCount(c.id);
   return [np ? `${np} proyecto${np > 1 ? 's' : ''}` : '', n ? (c.id === 'perfil' ? `${n} dato${n > 1 ? 's' : ''}` : `${n} pendiente${n > 1 ? 's' : ''}`) : 'Vacía'].filter(Boolean).join(' · ');
 }
+const CATVIEW_STORE = 'cerebro.catview';
+const catView = () => (lsGet(CATVIEW_STORE) === 'list' ? 'list' : 'grid');
 function viewLists() {
   const tips = auditOrg().slice(0, 3);
   const spark = SPARK.replace('<svg', '<svg class="ic"');
   return `
-  <header class="top"><h1>Categorías</h1></header>
+  <header class="top cats-top"><h1>Categorías</h1>
+    <div class="vtoggle" role="group" aria-label="Cómo ver las categorías">
+      <button data-act="catView" data-v="grid" aria-label="Ver en cuadrícula" aria-pressed="${catView() === 'grid'}">${ic('grid', 'sm')}</button>
+      <button data-act="catView" data-v="list" aria-label="Ver como lista" aria-pressed="${catView() === 'list'}">${ic('rows', 'sm')}</button>
+    </div></header>
   ${tips.length ? `<div class="card org"><div class="org-h">${ic('bolt', 'sm')} Para tener todo en orden</div>
     ${tips.map((t) => `<button class="sig" ${t.cat ? `data-act="cat" data-id="${t.cat}"` : ''}>${ic(t.icon, 'sm')}<span>${t.html}</span></button>`).join('')}
     ${hasAI() ? `<button class="btn ai block" data-act="organize">${spark} Ordenar con Nexo</button>` : ''}</div>`
     : hasAI() ? `<button class="btn block org-btn" data-act="organize">${spark} Revisar el orden con Nexo</button>` : ''}
-  <div class="card list" style="margin-top:14px">${S.cats.map((c) => `
+  ${catView() === 'grid' ? `<div class="grid cat-grid">${S.cats.map((c) => `
+    <button class="tile t-${catColor(c)}" data-act="cat" data-id="${c.id}">
+      <span class="em">${ic(c.icon)}</span><span class="nm">${esc(c.name)}</span><span class="ct">${catSub(c)}</span>
+    </button>`).join('')}</div>`
+  : `<div class="card list" style="margin-top:14px">${S.cats.map((c) => `
     <button class="cat-row" data-act="cat" data-id="${c.id}">
       <span class="em t-${catColor(c)}">${ic(c.icon)}</span><span class="nm">${esc(c.name)}<span class="sub">${catSub(c)}</span></span>
       <span class="chev">${ic('right', 'sm')}</span>
-    </button>`).join('')}</div>
-  <button class="btn block" style="margin-top:14px" data-act="newCat">${ic('plus')} Nueva categoría</button>
-  <p class="help">Cada categoría tiene proyectos y cada proyecto separa sus elementos por tipo. Toca una categoría y luego "Editar" para cambiar su nombre, icono, color u orden, o combinarla con otra.</p>`;
+    </button>`).join('')}</div>`}
+  <button class="fab" data-act="newCat" aria-label="Nueva categoría">${ic('plus')}<span>Nueva</span></button>
+  <p class="help" style="margin-bottom:72px">Cada categoría tiene proyectos y cada proyecto separa sus elementos por tipo. Toca una categoría y luego "Editar" para cambiar su nombre, icono, color u orden, o combinarla con otra.</p>`;
 }
 
 const TYPE_ORDER = ['evento', 'lista', 'compras', 'producto', 'tarea', 'nota'];
@@ -3061,7 +3087,7 @@ function viewSettings() {
     <button class="set-row danger" data-act="wipe">${ic('trash')}<span class="nm">Borrar toda la memoria</span></button>
   </div>
   <p class="help">Tu información vive solo en este teléfono. Haz un respaldo de vez en cuando y guárdalo en iCloud Drive (Archivos).</p>
-  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v7.3</p>`;
+  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v7.5</p>`;
 }
 
 function afterRender() {
@@ -3124,7 +3150,8 @@ async function runDiag() {
 
 function openSheet(html) {
   const root = $('#sheet');
-  root.innerHTML = `<div class="sheet-bg" data-close></div><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div>`;
+  const x = html.includes('class="np ') ? '' : `<button class="sheet-x" data-close aria-label="Cerrar">${ic('x', 'sm')}</button>`;
+  root.innerHTML = `<div class="sheet-bg" data-close></div><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${x}${html}</div>`;
   root.hidden = false; document.body.classList.add('noscroll');
   return $('.sheet', root);
 }
@@ -3311,6 +3338,7 @@ function openNote(id, edit = false) {
   const when = new Date(it.updated || it.created).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' });
   const sh = openSheet(`<div class="np ${edit ? 'editing' : ''}">
     <div class="np-bar">
+      ${edit ? '' : `<button class="np-btn icon" data-close aria-label="Cerrar">${ic('down', 'sm')}</button>`}
       <span class="np-crumb">${ic(c?.icon || 'note', 'xs')}<span>${esc(c?.name || 'Notas')}${it.group ? ' › ' + esc(it.group) : ''}</span></span>
       ${edit
         ? `<button class="np-btn" data-act="noteView" data-id="${it.id}">Cancelar</button><button class="np-btn primary" data-act="noteSave" data-id="${it.id}">Listo</button>`
@@ -3651,6 +3679,7 @@ const ACTIONS = {
     toast(it.done ? 'Hecho' : 'Pendiente otra vez', { undo: true });
   },
   open: (el) => openItem(el.dataset.id),
+  catView: (el) => { lsSet(CATVIEW_STORE, el.dataset.v); render(); },
   noteEditPage: (el) => openNote(el.dataset.id, true),
   noteView: (el) => openNote(el.dataset.id),
   noteSave: (el) => saveNote(el.dataset.id),
@@ -3880,6 +3909,55 @@ document.addEventListener('submit', (e) => {
     askAbout(`Sobre el elemento [id:${it.id}] "${it.title}":`, $('#edAsk'), $('button', form));
   }
 });
+
+/* ---------- Gestos para volver (en la app instalada iOS no trae gesto de atrás) ----------
+   Deslizar hacia abajo una hoja la cierra; deslizar hacia la derecha (desde el borde o en cualquier parte libre) vuelve atrás. */
+const canGoBack = () => !$('#sheet').hidden || (UI.tab === 'lists' && !!UI.cat) || UI.tab !== 'home';
+function goBack() {
+  if (!$('#sheet').hidden) return closeSheet();
+  if (UI.tab === 'lists' && UI.cat) return ACTIONS.back();
+  if (UI.tab !== 'home') go('home');
+}
+let SWP = null;
+const swpEl = (s) => (s.mode === 'pull' ? s.sh : s.mode === 'back' ? (s.sh || $('#view')) : null);
+function swpReset(s, el) { if (!el) return; el.style.transition = 'transform .22s cubic-bezier(.2,.8,.2,1)'; el.style.transform = ''; setTimeout(() => { el.style.transition = ''; }, 240); }
+document.addEventListener('touchstart', (e) => {
+  if (e.touches.length !== 1) { SWP = null; return; }
+  const t = e.touches[0], sh = e.target.closest('.sheet');
+  const typing = e.target.closest('input,textarea,select') && document.activeElement === e.target.closest('input,textarea,select');
+  SWP = {
+    x: t.clientX, y: t.clientY, t: Date.now(), sh, dx: 0, dy: 0, mode: '',
+    edge: t.clientX < 30,
+    free: !e.target.closest('.cscroll,.tnav,.np-tools,.im-list,input,textarea,select,.gse'),
+    pull: !!sh && sh.scrollTop <= 0 && !typing && !e.target.closest('.im-list,.note-view'),
+  };
+}, { passive: true });
+document.addEventListener('touchmove', (e) => {
+  const s = SWP; if (!s) return;
+  const t = e.touches[0]; s.dx = t.clientX - s.x; s.dy = t.clientY - s.y;
+  if (!s.mode) {
+    if (Math.abs(s.dx) < 12 && Math.abs(s.dy) < 12) return;
+    if (Math.abs(s.dy) > Math.abs(s.dx)) s.mode = s.pull && s.dy > 0 ? 'pull' : 'none';
+    else s.mode = s.dx > 0 && (s.edge || s.free) && canGoBack() ? 'back' : 'none';
+  }
+  const el = swpEl(s); if (!el) return;
+  if (s.mode === 'pull' && s.sh.scrollTop > 0) { s.mode = 'none'; swpReset(s, el); return; }
+  el.style.transition = 'none';
+  el.style.transform = s.mode === 'pull' ? `translateY(${Math.max(0, s.dy)}px)` : `translateX(${Math.max(0, s.dx) * 0.7}px)`;
+  if (e.cancelable) e.preventDefault();
+}, { passive: false });
+function swpEnd() {
+  const s = SWP; SWP = null; if (!s) return;
+  const el = swpEl(s); if (!el) return;
+  const fast = Date.now() - s.t < 280;
+  const ok = s.mode === 'pull' ? s.dy > 120 || (fast && s.dy > 50) : s.dx > 100 || (fast && s.dx > 50);
+  if (!ok) return swpReset(s, el);
+  el.style.transition = 'transform .18s ease-out';
+  el.style.transform = s.mode === 'pull' ? 'translateY(100%)' : 'translateX(100%)';
+  setTimeout(() => { el.style.transition = ''; el.style.transform = ''; goBack(); }, 170);
+}
+document.addEventListener('touchend', swpEnd, { passive: true });
+document.addEventListener('touchcancel', () => { const s = SWP; SWP = null; if (s) swpReset(s, swpEl(s)); }, { passive: true });
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey && e.target.id === 'onbIn' && e.target.tagName === 'INPUT') { e.preventDefault(); onbAction('next'); }
   if (e.key === 'Escape' && !$('#sheet').hidden) closeSheet();
