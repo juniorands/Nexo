@@ -570,6 +570,7 @@ const QUESTIONS = [
   { k: 'mySkin', label: 'Mi piel y skincare', q: '¿Cómo es tu piel y qué productos de skincare usas?', ph: 'Ej: piel mixta, limpiador CeraVe, protector La Roche-Posay' },
   { k: 'spouseLikes', label: 'Gustos de {E}', q: '¿Qué le gusta a {E}? Perfumes, maquillaje, marcas, colores, flores…', ph: 'Ej: Rare Beauty, perfume Delina, tulipanes blancos' },
   { k: 'spouseSizes', label: 'Tallas de {E}', q: '¿Sabes las tallas de {E}?', ph: 'Ej: ropa S, zapatos 6.5, anillo 6' },
+  { k: 'pets', label: 'Mis mascotas', q: '¿Tienen mascotas? Cuéntame sus nombres, qué son y qué comida comen.', ph: 'Ej: Mackenna y Luna, perras, comen Acana Wild Coast 14 kg' },
   { k: 'trips', label: 'Próximos viajes', q: '¿Tienes viajes próximos?', ph: 'Ej: Puerto Vallarta del 20 al 27 de diciembre' },
   { k: 'other', label: 'Otros datos', q: '¿Algo más que deba saber de ti o tu familia?', ph: 'Alergias, mascotas, preferencias, fechas importantes…' },
 ];
@@ -661,7 +662,7 @@ async function onbAction(a) {
     const k = $('#onbKey').value.trim();
     if (!k) { closeOnboarding(); return; }
     setBusy(btn, true, 'Probando…');
-    try { await connectGroq(k); closeOnboarding(); toast('IA conectada'); }
+    try { const warn = await connectGroq(k); closeOnboarding(); toast(warn ? 'Clave guardada. Revisa Ajustes → Probar conexión.' : 'IA conectada', { ms: 4000 }); }
     catch (e) { toast(e.message, { ms: 4000 }); }
     finally { setBusy(btn, false); }
   }
@@ -907,11 +908,11 @@ const liteModel = () => rankModels(MODELS).find((m) => /lite/.test(m) && /gemini
 /* ============================== Groq (motor de IA) ============================== */
 const GROQ = 'https://api.groq.com/openai/v1';
 let GMODELS = [];
-const GROQ_SKIP = /(whisper|tts|guard|playai|orpheus|compound|distil|allam|saba|embed|speech)/i;
+const GROQ_SKIP = /(whisper|tts|guard|safeguard|playai|orpheus|compound|distil|allam|saba|embed|speech|transcri)/i;
 const GROQ_DEFAULT = ['openai/gpt-oss-120b', 'llama-3.3-70b-versatile', 'openai/gpt-oss-20b', 'llama-3.1-8b-instant'];
 const GROQ_VISION_DEFAULT = ['meta-llama/llama-4-scout-17b-16e-instruct', 'meta-llama/llama-4-maverick-17b-128e-instruct'];
 function groqScore(m) {
-  const s = [[/gpt-oss-120b/, 100], [/llama-3\.3-70b/, 90], [/kimi-k2/, 86], [/llama-4-maverick/, 84], [/qwen3/, 78], [/gpt-oss-20b/, 72], [/llama-4-scout/, 66], [/llama-3\.1-8b/, 40]].find(([re]) => re.test(m));
+  const s = [[/llama-3\.3-70b/, 100], [/gpt-oss-120b/, 95], [/kimi-k2/, 86], [/llama-4-maverick/, 84], [/qwen/, 78], [/gpt-oss-20b/, 72], [/llama-4-scout/, 66], [/minimax/, 60], [/llama-3\.1-8b/, 45]].find(([re]) => re.test(m));
   return s ? s[1] : 50;
 }
 async function groqModels(key) {
@@ -924,8 +925,8 @@ async function groqModels(key) {
 }
 function groqOrder(vision) {
   if (vision) {
-    const v = GMODELS.filter((m) => /(llama-4|vision|-vl\b|vl-)/i.test(m)).sort((a, b) => groqScore(b) - groqScore(a));
-    return v.length ? v : GROQ_VISION_DEFAULT;
+    const v = GMODELS.filter((m) => /(llama-4|vision|-vl\b|vl-|omni|muse|qwen)/i.test(m)).sort((a, b) => groqScore(b) - groqScore(a));
+    return [...new Set([...v, ...(GMODELS.length ? [] : GROQ_VISION_DEFAULT)])];
   }
   return GMODELS.length ? [...GMODELS].sort((a, b) => groqScore(b) - groqScore(a)) : GROQ_DEFAULT;
 }
@@ -935,14 +936,15 @@ async function groqError(r) {
   const m = msg.match(/try again in (?:(\d+)m)?([\d.]+)s/i); if (m) retryMs = ((+m[1] || 0) * 60 + parseFloat(m[2])) * 1000;
   let e;
   if (r.status === 401 || r.status === 403) e = gErr('La clave de Groq no es válida. Revísala en Ajustes.', 'key');
-  else if (r.status === 404 || /(decommissioned|does not exist|not found)/i.test(msg)) e = gErr('Ese modelo de Groq no está disponible.', 'model');
+  else if (r.status === 404 || /model[^.]{0,80}(decommissioned|does not exist|not found|blocked|not have access|terms)/i.test(msg)) e = gErr('Ese modelo de Groq no está disponible para tu cuenta.', 'model');
   else if (r.status === 429 || r.status === 413) e = gErr(/per day|\(RPD\)|\(TPD\)/i.test(msg) ? 'Groq gratis llegó a su límite de hoy con este modelo.' : 'Groq está limitando por un momento.', 'quota');
   else if (r.status >= 500) e = gErr('Groq está saturado en este momento (' + r.status + ').', 'busy');
   else e = gErr('Groq: ' + (msg || 'error ' + r.status), r.status === 400 ? 'bad' : 'other');
   e.status = r.status; e.raw = msg; e.retryMs = retryMs; return e;
 }
 async function groqRaw(model, key, messages, ms) {
-  const body = { model, messages, temperature: 0.3, stream: true, response_format: { type: 'json_object' }, max_completion_tokens: 4096 };
+  // Sin "modo JSON": Groq no garantiza que funcione junto con la respuesta por partes. El JSON se pide en el mensaje y se valida al recibirlo.
+  const body = { model, messages, temperature: 0.3, stream: true, max_completion_tokens: 4096 };
   if (/gpt-oss/.test(model)) body.reasoning_effort = 'low';
   if (/qwen3/.test(model)) body.reasoning_effort = 'none';
   let ctl;
@@ -961,11 +963,18 @@ async function groqRaw(model, key, messages, ms) {
   };
   let r = await post();
   // Opciones que un modelo no acepta: se quitan y se reintenta.
-  for (const opt of ['reasoning_effort', 'response_format']) {
-    if (r.status !== 400) break;
+  for (const opt of ['reasoning_effort', 'max_completion_tokens', 'temperature']) {
+    if (r.status !== 400 || !(opt in body)) continue;
     const e = await groqError(r.clone());
-    if (e.code !== 'bad') throw e;
-    if (body[opt]) { delete body[opt]; r = await post(); }
+    if (e.code === 'key' || e.code === 'model') break;
+    if (!new RegExp(opt.split('_')[0], 'i').test(e.raw || '')) continue; // solo si el error habla de esa opción
+    delete body[opt]; r = await post();
+  }
+  if (r.status === 404 || r.status === 400 || r.status === 403) {
+    const e = await groqError(r);
+    e.message += ` (${model}${e.raw ? ': ' + e.raw.slice(0, 160) : ''})`;
+    if (e.code === 'model') { const c = getCool(); c[model] = Date.now() + 24 * 3600e3; lsSet(COOL_STORE, JSON.stringify(c)); }
+    throw e;
   }
   if (r.status === 429 || r.status === 413) { const e = await groqError(r); coolDown(model, e); throw e; }
   if (r.status >= 500) { await sleep(1000); r = await post(); }
@@ -977,11 +986,16 @@ async function groqGenerate(messages, { ms = 30000, max = 4, vision = false } = 
   const key = getGroq();
   if (!key) throw gErr('Conecta Groq en Ajustes.', 'key');
   await groqModels(key);
-  const pool = groqOrder(vision).slice(0, max);
-  const order = [...pool.filter((m) => !coolLeft(m)), ...pool.filter((m) => coolLeft(m)).sort((a, b) => coolLeft(a) - coolLeft(b))];
-  let firstErr, timeouts = 0, waited = false;
+  const all = groqOrder(vision);
+  const ready = all.filter((m) => !coolLeft(m));
+  // Modelos que fallaron por "no disponible" quedan 24 h fuera; si todos están fuera, se vuelven a probar.
+  const pool = (ready.length ? ready : all).slice(0, Math.max(max, 6));
+  const order = pool;
+  let firstErr, timeouts = 0, waited = false, tries = 0;
   for (const model of order) {
-    const left = coolLeft(model);
+    if (tries >= max && !['model', 'bad'].includes(firstErr?.code)) break;
+    tries++;
+    const left = ready.length ? coolLeft(model) : 0;
     if (left) {
       if (waited || left > 30000) { firstErr ||= gErr('La IA gratis está al límite por ahora. Intenta en un par de minutos.', 'quota'); continue; }
       waited = true;
@@ -989,12 +1003,13 @@ async function groqGenerate(messages, { ms = 30000, max = 4, vision = false } = 
     }
     try { return await groqRaw(model, key, messages, ms); }
     catch (e) {
-      if (!firstErr || (firstErr.code === 'quota' && e.code !== 'quota')) firstErr = e;
+      if (!firstErr || (['quota', 'model'].includes(firstErr.code) && !['quota', 'model'].includes(e.code))) firstErr = e;
       if (e.code === 'key' || e.code === 'offline') break;
       if (e.code === 'timeout' && ++timeouts >= 2) break;
       STATUS?.(e.code === 'quota' ? 'Cambiando a otro modelo…' : 'Probando con otro modelo…');
     }
   }
+  if (vision && firstErr && ['model', 'bad'].includes(firstErr.code)) throw gErr('Los modelos gratis de Groq de tu cuenta no pudieron leer la imagen. Copia el texto y pégalo en Nexo.', 'model');
   throw firstErr || gErr('La IA no respondió.', 'empty');
 }
 async function groqJSON({ system, parts, history = [], ms = 30000, max = 4 }) {
@@ -1013,9 +1028,11 @@ async function connectGroq(k) {
   GMODELS = [];
   await groqModels(k);
   lsSet(GROQ_STORE, k);
-  try { await groqGenerate([{ role: 'system', content: 'Responde en JSON.' }, { role: 'user', content: 'Responde solo {"ok":true}' }], { ms: 20000, max: 2 }); }
-  catch (e) { if (e.code !== 'quota') { lsDel(GROQ_STORE); throw e; } }
   lsDel(KEY_STORE); // solo Groq
+  lsDel(COOL_STORE);
+  try { await groqGenerate([{ role: 'system', content: 'Responde en JSON.' }, { role: 'user', content: 'Responde solo {"ok":true}' }], { ms: 20000, max: 3 }); }
+  catch (e) { if (e.code === 'key') { lsDel(GROQ_STORE); throw e; } return e.message; }
+  return '';
 }
 async function gemini({ system, parts, history = [], schema, prefer, ms = 30000, max }) {
   if (getGroq()) return groqJSON({ system, parts, history, ms, max });
@@ -1331,19 +1348,26 @@ async function aiCommand(text, img, history = [], onStatus) {
   STATUS = onStatus || null;
   try { return await aiCommand0(text, img, history, onStatus, parts); } finally { STATUS = null; }
 }
-const QUERY_SCHEMA = { type: 'OBJECT', properties: { query: { type: 'STRING' } }, required: ['query'] };
+const QUERY_SCHEMA = { type: 'OBJECT', properties: { query: { type: 'STRING' }, ask: { type: 'STRING' } }, required: ['query'] };
 /* Pedidos claramente de internet: un modelo liviano arma la búsqueda (más rápido y no gasta el cupo del modelo principal). */
+/* La IA arma la búsqueda con lo que sabe del usuario (memoria + conversación). Si no sabe de quién o qué habla, pregunta. */
 async function makeQuery(text, history, near = false) {
   if (!getGroq()) await ensureModels();
   const c = shopCountry();
-  const nearTxt = near ? ` Es un pedido de LUGARES CERCANOS: el usuario está ahora en ${shopWhere()}. La búsqueda debe incluir la comuna "${homeComuna()}" (ej. "veterinaria 24 horas ${homeComuna()} Santiago"). No incluyas otras ciudades.` : '';
-  const sys = `${nearTxt}Convierte la petición del usuario en UNA búsqueda web corta y precisa (máx 10 palabras) para encontrar productos o información en tiendas de ${c.name} (${shopWhere()}), con precios en ${c.cur}. Usa la memoria para afinar marca, tamaño o preferencias (ej. la comida que come su mascota, los perfumes que le gustan a ${spouse() || 'su esposa'}). Incluye "${c.name}". Responde JSON {"query": "..."}.
+  const nearTxt = near ? `\nEs un pedido de LUGARES CERCANOS: el usuario está ahora en ${shopWhere()}. La búsqueda debe incluir la comuna "${homeComuna()}" (ej. "veterinaria 24 horas ${homeComuna()} Santiago"). No incluyas otras ciudades.` : '';
+  const sys = `Convierte la petición del usuario en UNA búsqueda web corta y precisa (máx 10 palabras) para encontrar productos o información en tiendas de ${c.name}, con precios en ${c.cur}.${nearTxt}
+Reglas:
+- Usa la MEMORIA y la CONVERSACIÓN para entender a quién o qué se refiere. Los nombres propios pueden ser familia o mascotas (ej. "la comida de Toby" = el alimento para perro que come Toby, con marca y tamaño si están en la memoria o la conversación).
+- La búsqueda debe describir el PRODUCTO (marca, tipo, tamaño), nunca nombres de personas o mascotas: no sirven para buscar.
+- Si no puedes saber qué producto es (ej. no sabes quién es un nombre ni qué come o usa), deja query vacío y en ask haz UNA pregunta corta y concreta al usuario (ej. "¿Mackenna y Luna son tus mascotas? ¿Qué comida comen y de qué tamaño?").
+- No agregues el país: Nexo lo agrega solo.
+Responde JSON {"query": "...", "ask": ""}.
 MEMORIA:
 ${memoryText().slice(0, 6000)}`;
   try {
-    const r = await gemini({ system: sys, parts: [{ text }], history: history.slice(-4), schema: QUERY_SCHEMA, prefer: liteModel(), ms: 20000 });
-    return String(r.query || '').trim().slice(0, 200);
-  } catch (e) { if (e.code === 'key') throw e; return ''; }
+    const r = await gemini({ system: sys, parts: [{ text }], history: history.slice(-6), schema: QUERY_SCHEMA, prefer: liteModel(), ms: 12000, max: 3 });
+    return { query: String(r.query || '').trim().slice(0, 200), ask: String(r.ask || '').trim().slice(0, 300) };
+  } catch (e) { if (e.code === 'key') throw e; return { query: '', ask: '' }; }
 }
 /* ---------- Búsqueda rápida: resultados en segundos sin esperar a Gemini; Gemini afina después si puede. ---------- */
 const FILLER = /\b(por favor|porfa|recomi[eé]ndame|recomienda(me)?|b[uú]s?came|busca(r|me)?|encu[eé]ntrame|encuentra|investiga|cotiza(me)?|compara(me)?( precios)?|quiero|necesito|me (puedes|podr[ií]as)|puedes|podr[ií]as|arma(me)?( una)?( lista( de compras?)?)?|dame|mu[eé]strame|con (los )?(links?|enlaces)|y gu[aá]rda(lo|los|la|las|me)?( en [^,.]+)?|gu[aá]rda(lo|los|la|las)|al mejor precio|(el|los) mejor(es)? precios?|m[aá]s barat[oa]s?|d[oó]nde (compro|venden|comprar|lo consigo|puedo comprar)|cu[aá]nto (cuesta|vale|cuestan|valen)|en internet|en l[ií]nea|online|cerca de (m[ií]|aqu[ií]|mi casa)|por aqu[ií]|algun[oa]s?|un|un[oa]s?|bueno?s?|buena?s?|mejores)(?![\wáéíóúñ])/gi;
@@ -1440,7 +1464,7 @@ function localReply(web, products) {
   if (!products.length) return web.answer || 'Esto encontré en internet:';
   if (web.near) return `Encontré **${products.length} opciones cerca de ${homeComuna()}**. Toca **Ruta** para llegar.`;
   const p = products[0];
-  return p.price ? `**Más barato:** ${p.name} en **${p.store}** a **${p.price}**. Te dejo ${products.length} opciones en tiendas de ${c.name}.`
+  return p.price ? `**Más barato:** ${p.name} en **${p.store}** a **${p.price}**. ${products.length > 1 ? `Te dejo ${products.length} opciones en tiendas de ${c.name}.` : ''}`
     : `Encontré **${products.length} opciones** en tiendas de ${c.name}. Toca **Ver** para revisar el precio.`;
 }
 async function searchFlow(q, text, near, parts, history, onStatus) {
@@ -1528,9 +1552,16 @@ async function aiCommand0(text, img, history, onStatus, parts) {
   if (geoOn() && (wantsWeb || near)) { try { await refreshGeo(); } catch (e) { if (near) onStatus?.('Sin ubicación actual: uso la última conocida'); } }
   // Pedido claro de internet: se busca directo, sin gastar una pregunta de Gemini en armar la búsqueda.
   if (wantsWeb) {
-    let q = getTavily() ? localQuery(text, near) : '';
-    const meaningful = norm(q).replace(/\b(precio|cual|cuales|tiene|es|el|la|los|las|de|que)\b/g, '').trim();
-    if (!q || meaningful.length < 3 || (history.length && meaningful.split(/\s+/).length < 2)) q = await makeQuery(text, history, near) || q || (text || '').slice(0, 300);
+    // La IA (rápida) entiende "la comida de Mackenna y Luna" usando la memoria; sin IA se arma con reglas.
+    let q = '';
+    if (hasAI()) {
+      onStatus?.('Entendiendo qué buscar…');
+      const mq = await makeQuery(text, history, near);
+      if (!mq.query && mq.ask) return { reply: mq.ask + '\n\nCuando me respondas lo busco, y si quieres lo guardo en tu memoria para la próxima.', actions: [], sources: [], entry: '', links: [], products: [] };
+      q = mq.query;
+      if (q && SHOP_HINT.test(norm(text)) && !/precio/i.test(q) && !near) q += ' precio';
+    }
+    if (!q) q = getTavily() ? localQuery(text, near) : (text || '').slice(0, 300);
     return searchFlow(q, text, near, parts, history, onStatus);
   }
   const r = await gemini({ system: commandSystem(), parts, history, schema: CMD_SCHEMA });
@@ -1966,7 +1997,7 @@ function viewSettings() {
     <button class="set-row danger" data-act="wipe">${ic('trash')}<span class="nm">Borrar toda la memoria</span></button>
   </div>
   <p class="help">Tu información vive solo en este teléfono. Haz un respaldo de vez en cuando y guárdalo en iCloud Drive (Archivos).</p>
-  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v5.0</p>`;
+  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v5.2</p>`;
 }
 
 function afterRender() {
@@ -2002,7 +2033,14 @@ async function runDiag() {
   };
   const online = navigator.onLine !== false;
   await step('Internet del teléfono', async () => { if (!online) throw new Error('El iPhone dice que no hay conexión'); return 'OK'; });
-  if (!(await step('Clave de Groq y modelos', async () => { GMODELS = []; await groqModels(key); return `${GMODELS.length} modelos · primero: ${groqOrder(false)[0]}`; }))) return paint(true);
+  if (!(await step('Clave de Groq y modelos', async () => { GMODELS = []; lsDel(COOL_STORE); await groqModels(key); return `${GMODELS.length} modelos: ${GMODELS.join(', ').slice(0, 200)}`; }))) return paint(true);
+  for (const m of groqOrder(false).slice(0, 3)) {
+    await step(`Modelo ${m}`, async () => {
+      const { txt } = await groqRaw(m, key, [{ role: 'system', content: 'Responde en JSON.' }, { role: 'user', content: 'Responde solo {"ok":true}' }], 20000);
+      return 'respondió: ' + txt.trim().slice(0, 40);
+    });
+  }
+  lsDel(COOL_STORE);
   await step('Respuesta de Nexo (JSON)', async () => {
     const r = await gemini({ system: commandSystem(), parts: [{ text: '¿Qué tengo pendiente?' }], schema: CMD_SCHEMA });
     return `OK · ${String(r.reply || '').slice(0, 60)}`;
@@ -2402,8 +2440,9 @@ const ACTIONS = {
     if (!k) return toast('Pega tu clave primero');
     setBusy(el, true, 'Probando…');
     try {
-      await connectGroq(k);
-      toast('IA conectada'); render();
+      const warn = await connectGroq(k);
+      render();
+      if (warn) { toast('Clave guardada. Toca "Probar conexión" para ver qué falla.', { ms: 5000 }); runDiag(); } else toast('IA conectada');
     } catch (e) { toast(e.message, { ms: 4000 }); setBusy(el, false); }
   },
   removeKey: () => { if (!confirm('¿Quitar la clave de Groq de este teléfono?')) return; lsDel(GROQ_STORE); GMODELS = []; render(); },
