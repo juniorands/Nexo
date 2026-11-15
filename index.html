@@ -97,7 +97,7 @@ label.lbl{display:block; font-size:12px; font-weight:600; color:var(--muted); ma
 
 /* capture */
 .capture{border:1px solid transparent; background:linear-gradient(var(--surface),var(--surface)) padding-box, var(--grad) border-box; margin-top:14px}
-.capture textarea{border:0; background:transparent; padding:2px 2px 8px; font-size:17px; min-height:80px; width:100%; outline:none; resize:none}
+.capture textarea{border:0; background:transparent; padding:2px 2px 8px; font-size:17px; min-height:56px; width:100%; outline:none; resize:none}
 .capture textarea::placeholder{color:var(--faint)}
 .capture .row{display:flex; align-items:center; gap:8px}
 .capture .row .btn{margin-left:auto}
@@ -118,6 +118,56 @@ label.lbl{display:block; font-size:12px; font-weight:600; color:var(--muted); ma
 .sig.warn .ic{color:var(--danger)}
 .sig.soon .ic{color:var(--warn)}
 .sig b{font-weight:600}
+/* inicio */
+.today-card{margin-top:12px; padding:16px}
+.today-h{display:flex; align-items:center; justify-content:space-between; font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:600}
+.today-brief{display:inline-flex; align-items:center; gap:6px; font-size:13px; letter-spacing:0; text-transform:none; font-weight:600; color:#fff; padding:7px 12px; border-radius:99px; background:var(--grad)}
+.today-brief .ic{width:14px; height:14px}
+.stats{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px}
+.stat{display:flex; flex-direction:column; gap:2px; padding:10px 12px; border-radius:14px; background:var(--surface2)}
+.stat b{font-size:26px; font-weight:700; line-height:1.1; letter-spacing:-.02em}
+.stat span{font-size:12px; color:var(--muted)}
+.stat.late b{color:var(--danger)} .stat.today b{color:var(--mint)} .stat.week b{color:var(--violet-l)}
+.stat.zero b{color:var(--faint)}
+.today-msg{margin:12px 2px 0; font-size:15px; color:var(--muted)}
+.today-bday{display:flex; align-items:center; gap:10px; width:100%; margin-top:12px; padding:10px 12px; border-radius:14px; background:rgba(138,247,149,.08); text-align:left; font-size:14.5px}
+.today-bday > .ic:first-child{color:var(--mint)}
+.today-bday span{flex:1}
+.sec-ct{font-size:13px; color:var(--muted)}
+.cscroll{display:flex; gap:10px; overflow-x:auto; margin:0 -16px; padding:0 16px 4px; scrollbar-width:none; scroll-snap-type:x proximity; scroll-padding:0 16px}
+.cscroll::-webkit-scrollbar{display:none}
+.cmini{flex:none; width:132px; min-height:112px; scroll-snap-align:start; border-radius:18px; padding:12px; display:flex; flex-direction:column; align-items:flex-start; gap:8px; text-align:left}
+.cmini .em{width:34px; height:34px; border-radius:11px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.1)}
+.cmini.t-lav .em,.cmini.t-mint .em{background:rgba(0,0,0,.08)}
+.cmini .nm{font-weight:600; font-size:14.5px; line-height:1.2; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+.cmini .ct{font-size:12px; opacity:.7; margin-top:auto}
+.cmini.add{background:transparent; border:1.5px dashed var(--line); color:var(--muted); justify-content:center; align-items:center}
+/* recordatorios estilo calendario */
+.rem-list{display:flex; flex-direction:column; gap:8px}
+.rem2{display:flex; align-items:center; gap:4px; background:var(--surface); border-radius:18px; padding:8px 10px 8px 8px}
+.rem2-open{flex:1; min-width:0; display:flex; align-items:center; gap:12px; text-align:left}
+.cal{flex:none; width:52px; border-radius:12px; overflow:hidden; background:var(--surface2); display:flex; flex-direction:column; align-items:center; line-height:1}
+.cal-m{width:100%; text-align:center; background:var(--violet); color:#fff; font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; padding:4px 0 3px}
+.cal-d{font-size:22px; font-weight:700; padding:5px 0 1px; letter-spacing:-.02em; display:flex; align-items:center; justify-content:center; min-height:28px}
+.cal-w{font-size:10.5px; color:var(--muted); text-transform:lowercase; padding:0 0 5px}
+.rem2.today .cal-m{background:var(--mint); color:var(--mint-ink)}
+.rem2.late .cal-m{background:var(--danger)}
+.rem2.nodate .cal-m{background:var(--line)}
+.rem2-body{flex:1; min-width:0; display:flex; flex-direction:column; gap:3px}
+.rem2-title{font-size:16px; font-weight:500; line-height:1.25; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+.rem2-meta{display:flex; flex-wrap:wrap; align-items:center; gap:4px 0; font-size:12.5px; color:var(--muted)}
+.rem2-meta .ic{margin-right:4px}
+.rem2-meta > *{display:inline-flex; align-items:center}
+.dot-sep{display:inline-block; width:3px; height:3px; border-radius:3px; background:var(--faint); margin:0 7px}
+.rem2-when{font-weight:600; color:var(--text)}
+.rem2.soon .rem2-when{color:var(--violet-l)}
+.rem2.today .rem2-when{color:var(--mint)}
+.rem2.late .rem2-when{color:var(--danger)}
+.rem2-where{font-size:12.5px; color:var(--faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.rem2-check{flex:none; width:30px; height:30px; margin-left:4px; border-radius:99px; border:1.6px solid var(--line); display:flex; align-items:center; justify-content:center; color:var(--mint)}
+.rem2-check.ghost{border:0; color:var(--faint)}
+.rem2.done{opacity:.55}
+.rem2.done .rem2-title{text-decoration:line-through}
 .brief-btn{display:flex; align-items:center; gap:8px; width:100%; justify-content:center; margin-top:10px}
 .hints{display:flex; gap:8px; overflow-x:auto; margin:10px -16px 0; padding:0 16px; scrollbar-width:none}
 .hints::-webkit-scrollbar{display:none}
@@ -490,6 +540,7 @@ const ICONS = {
   pin: '<path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
   nav: '<path d="M3 11l18-8-8 18-2-8-8-2z"/>',
   key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
 };
 const ic = (name, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ICONS.folder}</svg>`;
 const SPARK = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C13.6 9.9 14.1 10.4 22 12C14.1 13.6 13.6 14.1 12 22C10.4 14.1 9.9 13.6 2 12C9.9 10.4 10.4 9.9 12 2Z"/></svg>';
@@ -2202,10 +2253,50 @@ function toggleMic(btn) {
   r.onerror = (e) => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') toast('Toca el micrófono del teclado para dictar'); };
   try { r.start(); REC = r; btn.classList.add('rec'); } catch { toast('Toca el micrófono del teclado para dictar'); }
 }
+/* Recordatorio con estilo de calendario: hoja de calendario (mes, día, día de la semana), título, hora y dónde está guardado. */
+function remRow(it, showCat = true) {
+  const d = effectiveDate(it), c = cat(it.cat);
+  const n = d ? daysTo(d) : null;
+  const cls = n === null ? 'nodate' : n < 0 ? 'late' : n === 0 ? 'today' : n <= 7 ? 'soon' : '';
+  const tm = timeOf(it);
+  const checkable = it.cat !== 'perfil' && it.repeat !== 'yearly';
+  const where = showCat && c ? esc(c.name) + (it.group ? ' › ' + esc(it.group) : '') : it.group && showCat ? esc(it.group) : '';
+  const when = n === null ? 'Sin fecha' : n < 0 ? `Atrasado ${-n} día${n === -1 ? '' : 's'}` : n === 0 ? 'Hoy' : n === 1 ? 'Mañana' : `En ${n} días`;
+  const meta = [`<b class="rem2-when">${when}</b>`, tm ? `${ic('clock', 'xs')}${esc(tm)}` : '', it.repeat === 'yearly' ? `${ic('repeat', 'xs')}Cada año` : ''].filter(Boolean).join('<i class="dot-sep"></i>');
+  return `<div class="rem2 ${cls} ${it.done ? 'done' : ''}">
+    <button class="rem2-open" data-act="open" data-id="${it.id}">
+      <span class="cal">${d ? `<span class="cal-m">${d.toLocaleDateString('es-CL', { month: 'short' }).replace('.', '')}</span><span class="cal-d">${d.getDate()}</span><span class="cal-w">${d.toLocaleDateString('es-CL', { weekday: 'short' }).replace('.', '')}</span>` : `<span class="cal-m">&nbsp;</span><span class="cal-d">${ic('calendar', 'sm')}</span><span class="cal-w">&nbsp;</span>`}</span>
+      <span class="rem2-body"><span class="rem2-title">${esc(it.title)}</span><span class="rem2-meta">${meta}</span>${where ? `<span class="rem2-where">${where}</span>` : ''}</span>
+    </button>
+    ${checkable ? `<button class="rem2-check" data-act="check" data-id="${it.id}" aria-label="${it.done ? 'Marcar como pendiente' : 'Marcar como hecho'}">${it.done ? ic('check', 'xs') : ''}</button>` : `<span class="rem2-check ghost">${ic(it.repeat === 'yearly' ? 'cake' : 'calendar', 'xs')}</span>`}
+  </div>`;
+}
+/* Resumen de hoy: tres números claros y, si viene un cumpleaños, una línea. */
+function todaySummary() {
+  const t = today0();
+  const dated = S.items.filter((i) => i.date && !i.done).map((i) => [i, effectiveDate(i)]);
+  const late = dated.filter(([i, d]) => d < t && i.repeat !== 'yearly').length;
+  const today = dated.filter(([, d]) => daysTo(d) === 0).length;
+  const week = dated.filter(([, d]) => daysTo(d) > 0 && daysTo(d) <= 7).length;
+  const bday = dated.filter(([i, d]) => i.repeat === 'yearly' && daysTo(d) >= 0 && daysTo(d) <= 21).sort((a, b) => a[1] - b[1])[0];
+  const ideas = S.items.filter((x) => x.cat === 'regalos' && !x.done).length;
+  const stat = (n, label, cls) => `<div class="stat ${n ? cls : 'zero'}"><b>${n}</b><span>${label}</span></div>`;
+  const msg = late ? `Tienes ${late} cosa${late > 1 ? 's' : ''} atrasada${late > 1 ? 's' : ''}. Resuélvela${late > 1 ? 's' : ''} o cámbiale${late > 1 ? 's' : ''} la fecha.`
+    : today ? `Hoy tienes ${today} cosa${today > 1 ? 's' : ''} en agenda.` : week ? 'Hoy estás libre. Mira lo que viene esta semana.' : 'Todo en orden. Buen momento para vaciar tu cabeza aquí.';
+  return `<section class="card today-card">
+    <div class="today-h"><span>Hoy</span>${hasAI() ? `<button class="today-brief" data-act="brief">${SPARK.replace('<svg', '<svg class="ic"')} Brief del día</button>` : ''}</div>
+    <div class="stats">${stat(late, late === 1 ? 'Atrasada' : 'Atrasadas', 'late')}${stat(today, 'Para hoy', 'today')}${stat(week, 'Esta semana', 'week')}</div>
+    <p class="today-msg">${msg}</p>
+    ${bday ? `<button class="today-bday" data-act="open" data-id="${bday[0].id}">${ic('cake', 'sm')}<span><b>${esc(bday[0].title)}</b> ${esc(whenTxt(bday[1]).toLowerCase())}${/cumple|aniversario/i.test(bday[0].title) ? ` · ${ideas ? `${ideas} idea${ideas > 1 ? 's' : ''} de regalo` : 'sin ideas de regalo aún'}` : ''}</span>${ic('right', 'xs')}</button>` : ''}
+  </section>`;
+}
 function viewHome() {
   const n = S.profile.name;
   const d = new Date().toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' });
-  const up = upcoming(6);
+  const t = today0();
+  const agenda = S.items.filter((i) => i.date && !i.done).map((i) => [i, effectiveDate(i)])
+    .filter(([i, x]) => (x < t ? i.repeat !== 'yearly' : daysTo(x) <= 60)).sort((a, b) => a[1] - b[1]).map(([i]) => i);
+  const shown = UI.agendaAll ? agenda : agenda.slice(0, 5);
   return `
   <header class="top home-top">
     ${ARCS}
@@ -2213,7 +2304,7 @@ function viewHome() {
     <button class="avatar" data-act="goSettings" aria-label="Tu perfil y ajustes"><img src="${esc(getAvatar())}" alt=""></button>
   </header>
   <section class="card capture">
-    <textarea id="capText" rows="3" aria-label="Escríbele a Nexo" placeholder="${hasAI() ? 'Captura, cambia o pregunta. Nexo se encarga del resto.' : '¿Qué quieres recordar?'}"></textarea>
+    <textarea id="capText" rows="2" aria-label="Escríbele a Nexo" placeholder="${hasAI() ? 'Captura, cambia o pregunta…' : '¿Qué quieres recordar?'}"></textarea>
     ${pendingPdf ? `<div class="cap-pdf">${ic('note')}<div style="flex:1; min-width:0"><b>${esc(pendingPdf.name)}</b><div class="small muted">${pendingPdf.pages} página${pendingPdf.pages > 1 ? 's' : ''} · ${pendingPdf.text.length > PDF_MAX ? 'muy largo: leo el comienzo' : 'texto listo'}</div></div><button data-act="pdfRemove" aria-label="Quitar PDF">${ic('x', 'sm')}</button></div>` : ''}
     <div id="capImg" class="cap-img" ${pendingImg ? '' : 'hidden'}>${pendingImg ? `<img src="${pendingImg.preview}" alt="Imagen adjunta"><button data-act="imgRemove" aria-label="Quitar imagen">${ic('x', 'sm')}</button>` : ''}</div>
     <div class="row">
@@ -2224,18 +2315,17 @@ function viewHome() {
       <button class="btn primary" data-act="capture">${hasAI() ? 'Enviar' : 'Guardar'}</button>
     </div>
   </section>
-  ${hasAI() ? `<div class="hints">${HINTS().map((h) => `<button class="hint" data-act="hint">${esc(h)}</button>`).join('')}</div>` : ''}
-  <div class="sec-row"><h2 class="sec">Lo que importa hoy</h2></div>
-  <div class="card focus">${signals().map((s) => `<button class="sig ${s.cls || ''}" ${s.id ? `data-act="open" data-id="${s.id}"` : ''}>${ic(s.icon, 'sm')}<span>${s.html}</span></button>`).join('')}</div>
-  ${hasAI() ? `<button class="btn ai brief-btn" data-act="brief">${SPARK.replace('<svg', '<svg class="ic"')} Brief del día con Nexo</button>` : ''}
-  <div class="sec-row"><h2 class="sec">Próximos</h2></div>
-  ${up.length ? `<div class="card list">${up.map((i) => itemRow(i)).join('')}</div>` : '<p class="empty">Nada con fecha todavía. Lo que guardes con fecha aparecerá aquí.</p>'}
-  <div class="sec-row"><h2 class="sec">Mis categorías</h2><button class="link" data-act="newCat">${ic('plus', 'sm')} Nueva</button></div>
-  <div class="grid">${S.cats.map((c) => `
-    <button class="tile t-${catColor(c)}" data-act="cat" data-id="${c.id}">
-      <span class="em">${ic(c.icon)}</span><span class="nm">${esc(c.name)}</span>
-      <span class="ct">${countLabel(c)}</span>
-    </button>`).join('')}</div>`;
+  ${todaySummary()}
+  <div class="sec-row"><h2 class="sec">Agenda</h2>${agenda.length ? `<span class="sec-ct">${agenda.length} con fecha</span>` : ''}</div>
+  ${agenda.length ? `<div class="rem-list">${shown.map((i) => remRow(i)).join('')}</div>
+    ${agenda.length > 5 ? `<button class="toggle-done" data-act="agendaAll">${UI.agendaAll ? 'Ver menos' : `Ver los ${agenda.length}`}</button>` : ''}`
+    : '<p class="empty">Nada con fecha todavía. Lo que guardes con fecha aparecerá aquí, como en un calendario.</p>'}
+  <div class="sec-row"><h2 class="sec">Categorías</h2><button class="link" data-act="goLists">Ver todas ${ic('right', 'xs')}</button></div>
+  <div class="cscroll">${S.cats.map((c) => `
+    <button class="cmini t-${catColor(c)}" data-act="cat" data-id="${c.id}">
+      <span class="em">${ic(c.icon, 'sm')}</span><span class="nm">${esc(c.name)}</span><span class="ct">${countLabel(c)}</span>
+    </button>`).join('')}
+    <button class="cmini add" data-act="newCat"><span class="em">${ic('plus', 'sm')}</span><span class="nm">Nueva</span></button></div>`;
 }
 
 /* Diagnóstico local (sin IA) de lo que está desordenado. */
@@ -2324,7 +2414,7 @@ function viewProject(id, g) {
     if (!list.length) return '';
     list = t === 'evento' ? list.sort((a, b) => (effectiveDate(a) || 0) - (effectiveDate(b) || 0)) : sortItems(list);
     const [name, icon] = TYPE_SEC[t];
-    const body = isListType(t) ? list.map(listCard).join('') : `<div class="igrid">${list.map((i) => typeCard(i, t)).join('')}</div>`;
+    const body = isListType(t) ? list.map(listCard).join('') : t === 'evento' ? `<div class="rem-list">${list.map((i) => remRow(i, false)).join('')}</div>` : `<div class="igrid">${list.map((i) => typeCard(i, t)).join('')}</div>`;
     return `<section class="tsec"><h2 class="tsec-h">${ic(icon, 'sm')} ${name}<span class="ct">${list.length}</span></h2>${body}</section>`;
   }).join('');
   return `
@@ -2590,7 +2680,7 @@ function viewSettings() {
     <button class="set-row danger" data-act="wipe">${ic('trash')}<span class="nm">Borrar toda la memoria</span></button>
   </div>
   <p class="help">Tu información vive solo en este teléfono. Haz un respaldo de vez en cuando y guárdalo en iCloud Drive (Archivos).</p>
-  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v7.0</p>`;
+  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v7.1</p>`;
 }
 
 function afterRender() {
@@ -3097,6 +3187,7 @@ const ACTIONS = {
   brief: () => { go('ask'); doAsk('Dame mi brief de hoy: lo más importante en 3 a 5 puntos, qué hago primero y una sugerencia proactiva basada en mi memoria (fechas que vienen, regalos, compras pendientes). Directo y sin relleno.'); },
   goSettings: () => go('settings'),
   goLists: () => go('lists'),
+  agendaAll: () => { UI.agendaAll = !UI.agendaAll; render(); },
   capture: (el) => doCapture(el),
   hint: (el) => { const t = $('#capText'); t.value = el.textContent.replace(/…$/, ' '); t.focus(); },
   imgPick: () => $('#fileImg').click(),
