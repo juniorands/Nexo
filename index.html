@@ -425,6 +425,7 @@ function save() { if (!lsSet(STORE, JSON.stringify(S))) toast('No se pudo guarda
 
 const getKey = () => lsGet(KEY_STORE) || '';
 const getModel = () => lsGet(MODEL_STORE) || 'gemini-2.5-flash';
+if (lsGet('cerebro.gemini.cfg') !== '2') { lsDel(MODEL_STORE); lsSet('cerebro.gemini.cfg', '2'); }
 const hasAI = () => !!getKey();
 const getAvatar = () => lsGet(AVATAR_STORE) || 'avatar.png';
 const cat = (id) => S.cats.find((c) => c.id === id);
@@ -616,21 +617,31 @@ async function onbAction(a) {
 
 /* ============================== Gemini ============================== */
 const API = 'https://generativelanguage.googleapis.com/v1beta';
+const FALLBACK_MODELS = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite', 'gemini-flash-lite-latest'];
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function gErr(msg, code) { const e = new Error(msg); e.code = code; return e; }
 async function apiError(r) {
   let msg = '';
   try { msg = (await r.json()).error?.message || ''; } catch {}
-  if (r.status === 400 && /api key/i.test(msg)) return new Error('La clave de Gemini no es válida. Revísala en Ajustes.');
-  if (r.status === 403) return new Error('Gemini rechazó la clave (403). Verifica que esté activa.');
-  if (r.status === 404) return new Error('Ese modelo no está disponible. Elige otro en Ajustes.');
-  if (r.status === 429) return new Error('Llegaste al límite de uso de Gemini. Intenta en un minuto.');
-  if (r.status >= 500) return new Error('Gemini tuvo un problema. Intenta de nuevo.');
-  return new Error('Gemini: ' + (msg || 'error ' + r.status));
+  if (r.status === 400 && /api.?key/i.test(msg)) return gErr('La clave de Gemini no es válida. Revísala en Ajustes.', 'key');
+  if (r.status === 401 || r.status === 403) return gErr('Gemini rechazó la clave (' + r.status + '). Verifica que esté activa.', 'key');
+  if (r.status === 404) return gErr('Ese modelo no está disponible para tu clave.', 'model');
+  if (r.status === 429) return gErr(/limit:\s*0|free_tier/i.test(msg) ? 'Este modelo no está incluido en tu plan gratuito.' : 'Llegaste al límite de uso de Gemini. Espera un minuto.', 'quota');
+  if (r.status >= 500) return gErr('Gemini está saturado en este momento (' + r.status + ').', 'busy');
+  return gErr('Gemini: ' + (msg || 'error ' + r.status), r.status === 400 ? 'bad' : 'other');
 }
-async function gfetch(url, opts = {}, ms = 90000) {
-  const ac = new AbortController(); const t = setTimeout(() => ac.abort(), ms);
-  try { return await fetch(url, { ...opts, signal: ac.signal }); }
-  catch (e) { throw new Error(e.name === 'AbortError' ? 'Gemini tardó demasiado. Intenta de nuevo.' : 'Sin conexión a internet.'); }
-  finally { clearTimeout(t); }
+async function gfetch(url, opts = {}, ms = 45000) {
+  for (let attempt = 0; ; attempt++) {
+    const ac = new AbortController(); const t = setTimeout(() => ac.abort(), ms);
+    try { return await fetch(url, { ...opts, signal: ac.signal }); }
+    catch (e) {
+      if (e.name === 'AbortError') throw gErr('Gemini tardó demasiado en responder.', 'timeout');
+      if (navigator.onLine === false) throw gErr('Sin conexión a internet.', 'offline');
+      // iPhone corta a veces la conexión (cambio de red, app en segundo plano): reintenta una vez.
+      if (attempt < 1) { await sleep(1200); continue; }
+      throw gErr('Se cortó la conexión con Gemini. Mantén la app abierta e intenta de nuevo.', 'net');
+    } finally { clearTimeout(t); }
+  }
 }
 async function listModels(key) {
   const r = await gfetch(`${API}/models?pageSize=200`, { headers: { 'x-goog-api-key': key } }, 20000);
@@ -639,25 +650,78 @@ async function listModels(key) {
   return (j.models || [])
     .filter((m) => (m.supportedGenerationMethods || []).includes('generateContent'))
     .map((m) => m.name.replace(/^models\//, ''))
-    .filter((n) => /^gemini-/.test(n) && !/(image|tts|audio|live|embed|vision|computer|robotics|native|learnlm)/.test(n));
+    .filter((n) => /^gemini-/.test(n) && !/(image|tts|audio|live|embed|vision|computer|robotics|native|learnlm|exp)/.test(n));
 }
+/* Prefiere modelos Flash estables (rápidos y con capa gratuita); evita preview y Pro (lentos, con poco cupo gratis). */
 function pickModel(names) {
   const score = (n) => {
+    if (n === 'gemini-2.5-flash') return 1000;
     const m = n.match(/^gemini-(\d+(?:\.\d+)?)-(flash|pro)(-lite)?(.*)$/);
     if (!m) return -1;
-    let s = parseFloat(m[1]) * 100 + (m[2] === 'flash' && !m[3] ? 50 : m[3] ? 20 : 10);
-    if (m[4]) s -= 60;
+    let s = parseFloat(m[1]) * 100 + (m[2] === 'pro' ? -300 : m[3] ? 20 : 50);
+    if (m[4]) s -= 400;
     return s;
   };
   return names.slice().sort((a, b) => score(b) - score(a))[0] || 'gemini-2.5-flash';
 }
+/* Pensar mucho hace a Gemini lento (y en iPhone la conexión se corta): Nexo pide respuestas rápidas. */
+function thinkingFor(model) {
+  if (/gemini-3/.test(model)) return { thinkingLevel: /pro/.test(model) ? 'low' : 'minimal' };
+  if (/2\.5-flash|flash-latest|flash-lite-latest/.test(model)) return { thinkingBudget: 0 };
+  if (/2\.5-pro/.test(model)) return { thinkingBudget: 128 };
+  return null;
+}
 let MODELS = [];
+async function rawGenerate(model, key, body) {
+  const b = JSON.parse(JSON.stringify(body));
+  const th = thinkingFor(model);
+  if (th) b.generationConfig.thinkingConfig = th;
+  const post = () => gfetch(`${API}/models/${encodeURIComponent(model)}:generateContent`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(b),
+  });
+  let r = await post();
+  // 400 por configuración (pensamiento o esquema) en modelos que no la aceptan: reintenta más simple.
+  if (r.status === 400) {
+    const err = await apiError(r.clone());
+    if (err.code === 'key') throw err;
+    delete b.generationConfig.thinkingConfig; delete b.generationConfig.responseSchema;
+    r = await post();
+  }
+  // Saturado: espera y reintenta una vez.
+  if (r.status >= 500) { await sleep(2000); r = await post(); }
+  if (!r.ok) throw await apiError(r);
+  const j = await r.json();
+  const txt = (j.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || '').join('');
+  if (!txt) throw gErr('Gemini no respondió' + (j.promptFeedback?.blockReason ? ` (${j.promptFeedback.blockReason})` : '') + '.', 'empty');
+  return txt;
+}
+/* Usa el modelo elegido y, si falla por modelo/cupo/saturación, prueba los de respaldo y se queda con el que funcione. */
+async function generate(body, key = getKey()) {
+  const first = getModel();
+  const chain = [first, ...FALLBACK_MODELS.filter((m) => m !== first && (!MODELS.length || MODELS.includes(m)))];
+  let lastErr;
+  for (const model of chain) {
+    try {
+      const txt = await rawGenerate(model, key, body);
+      if (model !== first) lsSet(MODEL_STORE, model);
+      return txt;
+    } catch (e) {
+      lastErr = e;
+      if (!['model', 'quota', 'busy', 'timeout'].includes(e.code)) break;
+    }
+  }
+  throw lastErr;
+}
 async function connectKey(k) {
   const names = await listModels(k);
   MODELS = names;
-  lsSet(KEY_STORE, k);
   const cur = lsGet(MODEL_STORE);
   if (!cur || !names.includes(cur)) lsSet(MODEL_STORE, pickModel(names));
+  // Prueba real: que Gemini de verdad conteste con esta clave antes de decir "conectado".
+  try {
+    await generate({ contents: [{ role: 'user', parts: [{ text: 'Responde solo: {"ok":true}' }] }], generationConfig: { temperature: 0, responseMimeType: 'application/json' } }, k);
+  } catch (e) { if (e.code !== 'quota') throw e; }
+  lsSet(KEY_STORE, k);
 }
 function parseJSON(txt) {
   try { return JSON.parse(txt); } catch {}
@@ -666,24 +730,14 @@ function parseJSON(txt) {
   throw new Error('No entendí la respuesta de Gemini. Intenta de nuevo.');
 }
 async function gemini({ system, parts, history = [], schema }) {
-  const key = getKey();
-  if (!key) throw new Error('Conecta Gemini en Ajustes.');
+  if (!getKey()) throw new Error('Conecta Gemini en Ajustes.');
   const body = {
     systemInstruction: { parts: [{ text: system }] },
     contents: [...history, { role: 'user', parts }],
     generationConfig: { temperature: 0.4, responseMimeType: 'application/json' },
   };
   if (schema) body.generationConfig.responseSchema = schema;
-  const post = () => gfetch(`${API}/models/${encodeURIComponent(getModel())}:generateContent`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(body),
-  });
-  let r = await post();
-  if (!r.ok && r.status === 400 && schema) { delete body.generationConfig.responseSchema; r = await post(); }
-  if (!r.ok) throw await apiError(r);
-  const j = await r.json();
-  const txt = (j.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || '').join('');
-  if (!txt) throw new Error('Gemini no respondió' + (j.promptFeedback?.blockReason ? ` (${j.promptFeedback.blockReason})` : '') + '.');
-  return parseJSON(txt);
+  return parseJSON(await generate(body));
 }
 
 /* Nexo entiende comandos: guardar, editar, mover, completar, borrar, organizar listas o responder */
@@ -1029,7 +1083,7 @@ function viewSettings() {
     <button class="set-row danger" data-act="wipe">${ic('trash')}<span class="nm">Borrar toda la memoria</span></button>
   </div>
   <p class="help">Tu información vive solo en este teléfono. Haz un respaldo de vez en cuando y guárdalo en iCloud Drive (Archivos).</p>
-  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v3</p>`;
+  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v3.1</p>`;
 }
 
 function afterRender() {
