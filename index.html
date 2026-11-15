@@ -434,8 +434,8 @@ let S = load();
 function save() { if (!lsSet(STORE, JSON.stringify(S))) toast('No se pudo guardar en el teléfono'); }
 
 const getKey = () => lsGet(KEY_STORE) || '';
-const getModel = () => lsGet(MODEL_STORE) || 'gemini-2.5-flash';
-if (lsGet('cerebro.gemini.cfg') !== '2') { lsDel(MODEL_STORE); lsSet('cerebro.gemini.cfg', '2'); }
+const getModel = () => lsGet(MODEL_STORE) || '';
+if (lsGet('cerebro.gemini.cfg') !== '3') { lsDel(MODEL_STORE); lsSet('cerebro.gemini.cfg', '3'); }
 const hasAI = () => !!getKey();
 const getAvatar = () => lsGet(AVATAR_STORE) || 'avatar.png';
 const cat = (id) => S.cats.find((c) => c.id === id);
@@ -627,7 +627,6 @@ async function onbAction(a) {
 
 /* ============================== Gemini ============================== */
 const API = 'https://generativelanguage.googleapis.com/v1beta';
-const FALLBACK_MODELS = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite', 'gemini-flash-lite-latest'];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function gErr(msg, code) { const e = new Error(msg); e.code = code; return e; }
 async function apiError(r) {
@@ -663,20 +662,27 @@ async function listModels(key) {
     .filter((n) => /^gemini-/.test(n) && !/(image|tts|audio|live|embed|vision|computer|robotics|native|learnlm|exp)/.test(n));
 }
 /* Prefiere modelos Flash estables (rápidos y con capa gratuita); evita preview y Pro (lentos, con poco cupo gratis). */
-function pickModel(names) {
-  const score = (n) => {
-    if (n === 'gemini-2.5-flash') return 1000;
+function modelScore(n) {
+  {
     const m = n.match(/^gemini-(\d+(?:\.\d+)?)-(flash|pro)(-lite)?(.*)$/);
     if (!m) return -1;
     let s = parseFloat(m[1]) * 100 + (m[2] === 'pro' ? -300 : m[3] ? 20 : 50);
     if (m[4]) s -= 400;
     return s;
-  };
-  return names.slice().sort((a, b) => score(b) - score(a))[0] || 'gemini-2.5-flash';
+  }
+}
+const rankModels = (names) => names.filter((n) => modelScore(n) > 0).sort((a, b) => modelScore(b) - modelScore(a));
+function pickModel(names) { return rankModels(names)[0] || names[0] || 'gemini-flash-latest'; }
+/* Asegura conocer los modelos de esta clave y tener uno válido elegido. */
+async function ensureModels(key = getKey()) {
+  if (!MODELS.length) { try { MODELS = await listModels(key); } catch (e) { if (e.code === 'key') throw e; } }
+  const cur = getModel();
+  if (MODELS.length && (!cur || !MODELS.includes(cur))) lsSet(MODEL_STORE, pickModel(MODELS));
+  if (!getModel()) lsSet(MODEL_STORE, 'gemini-flash-latest');
 }
 /* Pensar mucho hace a Gemini lento (y en iPhone la conexión se corta): Nexo pide respuestas rápidas. */
 function thinkingFor(model) {
-  if (/gemini-3/.test(model)) return { thinkingLevel: /pro/.test(model) ? 'low' : 'minimal' };
+  if (/gemini-([3-9]|\d\d)/.test(model)) return { thinkingLevel: /pro/.test(model) ? 'low' : 'minimal' };
   if (/2\.5-flash|flash-latest|flash-lite-latest/.test(model)) return { thinkingBudget: 0 };
   if (/2\.5-pro/.test(model)) return { thinkingBudget: 128 };
   return null;
@@ -706,27 +712,26 @@ async function rawGenerate(model, key, body) {
   return { txt, cand: j.candidates[0] };
 }
 /* Usa el modelo elegido y, si falla por modelo/cupo/saturación, prueba los de respaldo y se queda con el que funcione. */
-async function generate(body, key = getKey()) {
-  const first = getModel();
-  const chain = [first, ...FALLBACK_MODELS.filter((m) => m !== first && (!MODELS.length || MODELS.includes(m)))];
-  let lastErr;
-  for (const model of chain) {
+async function generate(body, key = getKey(), { prefer } = {}) {
+  await ensureModels(key);
+  const first = prefer && MODELS.includes(prefer) ? prefer : getModel();
+  const backups = rankModels(MODELS).filter((m) => m !== first && !/-pro/.test(m)).slice(0, 3);
+  let firstErr;
+  for (const model of [first, ...backups]) {
     try {
       const res = await rawGenerate(model, key, body);
-      if (model !== first) lsSet(MODEL_STORE, model);
+      if (model !== first && !prefer) lsSet(MODEL_STORE, model);
       return res;
     } catch (e) {
-      lastErr = e;
+      if (!firstErr) { firstErr = e; firstErr.message += ` (${model})`; }
       if (!['model', 'quota', 'busy', 'timeout'].includes(e.code)) break;
     }
   }
-  throw lastErr;
+  throw firstErr;
 }
 async function connectKey(k) {
-  const names = await listModels(k);
-  MODELS = names;
-  const cur = lsGet(MODEL_STORE);
-  if (!cur || !names.includes(cur)) lsSet(MODEL_STORE, pickModel(names));
+  MODELS = await listModels(k);
+  await ensureModels(k);
   // Prueba real: que Gemini de verdad conteste con esta clave antes de decir "conectado".
   try {
     await generate({ contents: [{ role: 'user', parts: [{ text: 'Responde solo: {"ok":true}' }] }], generationConfig: { temperature: 0, responseMimeType: 'application/json' } }, k);
@@ -768,7 +773,9 @@ No inventes URLs ni precios: solo los que veas en los resultados.` }] },
     tools: [{ google_search: {} }],
     generationConfig: { temperature: 0.2 },
   };
-  const { txt, cand } = await generate(body);
+  const cur = getModel();
+  const prefer = /gemini-([3-9]|\d\d)/.test(cur) ? cur : rankModels(MODELS).find((m) => /gemini-([3-9]|\d\d)/.test(m) && !/-pro/.test(m));
+  const { txt, cand } = await generate(body, getKey(), { prefer });
   const gm = cand?.groundingMetadata || {};
   const seen = new Set();
   const sources = (gm.groundingChunks || []).map((c) => c.web).filter((w) => w?.uri)
@@ -1130,7 +1137,7 @@ function viewSettings() {
     <input class="in" id="keyIn" type="password" placeholder="Pega tu clave" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(key)}">
     ${key ? `<label class="lbl" for="modelSel">Modelo</label>
     <select class="in" id="modelSel">${models.map((m) => `<option ${m === model ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select>
-    <p class="help">Recomendado: el "flash" más nuevo. Es rápido y barato.</p>` : ''}
+    <p class="help">Recomendado: el "flash" más nuevo (Gemini 3 o superior: incluye búsquedas gratis en internet).</p>` : ''}
     <div style="display:flex; gap:10px; margin-top:14px">
       <button class="btn primary" style="flex:1" data-act="saveKey">${key ? 'Guardar y probar' : 'Conectar'}</button>
       ${key ? '<button class="btn danger" data-act="removeKey">Quitar</button>' : ''}
@@ -1158,7 +1165,7 @@ function viewSettings() {
     <button class="set-row danger" data-act="wipe">${ic('trash')}<span class="nm">Borrar toda la memoria</span></button>
   </div>
   <p class="help">Tu información vive solo en este teléfono. Haz un respaldo de vez en cuando y guárdalo en iCloud Drive (Archivos).</p>
-  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v3.2</p>`;
+  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v3.3</p>`;
 }
 
 function afterRender() {
