@@ -1,0 +1,1486 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Nexo">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#141416">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<title>Nexo</title>
+<style>
+/* Nexo · estilo Jr: grafito, menta, violeta eléctrico, degradado azul */
+:root{
+  --bg:#141416; --surface:#1e1e20; --surface2:#2a2a2e; --line:#323237; --text:#f4f4f8; --muted:#a6a6bc; --faint:#7d7d90;
+  --mint:#8af795; --mint-ink:#0f1a11; --violet:#6a00ff; --violet-l:#a98aff; --blue:#1010ff; --lav:#dadaf0; --lav-ink:#1e1e20;
+  --danger:#ff6b6b; --warn:#ffc857;
+  --grad:linear-gradient(155deg,#6a00ff 0%,#1010ff 58%,#3d8bff 82%,#8af795 125%);
+  --radius:22px; --tabbar:66px;
+  --font:'Outfit',-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html{background:var(--bg)}
+body{
+  margin:0; color:var(--text); background:transparent;
+  font:400 17px/1.4 var(--font);
+  padding:env(safe-area-inset-top) 0 calc(var(--tabbar) + env(safe-area-inset-bottom) + 18px);
+  min-height:100vh; -webkit-font-smoothing:antialiased;
+}
+body::before{
+  content:''; position:fixed; left:-30%; right:-30%; top:-25vh; height:70vh; z-index:-1; pointer-events:none;
+  background:
+    radial-gradient(38% 45% at 22% 40%, rgba(106,0,255,.42), transparent 70%),
+    radial-gradient(34% 42% at 78% 30%, rgba(16,16,255,.32), transparent 70%),
+    radial-gradient(26% 34% at 52% 70%, rgba(138,247,149,.12), transparent 70%);
+  filter:blur(28px);
+}
+body.noscroll{overflow:hidden}
+button,input,textarea,select{font:inherit; color:inherit}
+button{cursor:pointer; background:none; border:0; padding:0}
+a{color:var(--mint)}
+#view{max-width:640px; margin:0 auto; padding:0 16px}
+h1,h2,h3{font-family:var(--font); font-weight:600}
+
+/* iconos */
+.ic{width:20px; height:20px; flex:none; display:block}
+.ic.xs{width:13px; height:13px; display:inline-block; vertical-align:-2px}
+.ic.sm{width:16px; height:16px}
+.ic.lg{width:24px; height:24px}
+
+.top{padding:18px 2px 6px; position:relative}
+.top h1{font-size:34px; line-height:1.1; margin:0; letter-spacing:-.025em}
+.eyebrow{font-size:12px; font-weight:600; color:var(--mint); text-transform:uppercase; letter-spacing:.12em}
+.home-top{display:flex; align-items:flex-end; gap:12px; padding-top:22px}
+.home-top .hello{flex:1; min-width:0; display:flex; flex-direction:column; gap:6px}
+.avatar{flex:none; width:52px; height:52px; border-radius:99px; overflow:hidden; background:var(--lav); box-shadow:0 0 0 2px var(--bg), 0 0 0 4px var(--mint)}
+.avatar img{width:100%; height:100%; object-fit:cover; display:block}
+.top-row{display:flex; align-items:center; gap:8px; padding:14px 0 4px}
+.top-row h1{font-size:28px; margin:0; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; letter-spacing:-.02em}
+.back{color:var(--mint); font-size:17px; padding:6px 2px; display:flex; align-items:center; gap:2px}
+.sec{font-size:21px; margin:28px 2px 12px; letter-spacing:-.015em}
+.sec-row{display:flex; align-items:baseline; justify-content:space-between}
+.sec-row .link{color:var(--mint); font-size:15px; font-weight:500; display:flex; align-items:center; gap:4px}
+.card{background:var(--surface); border-radius:var(--radius); padding:14px}
+.list{padding:0 0 0 14px}
+.muted{color:var(--muted)}
+.small{font-size:14px}
+.empty{color:var(--muted); font-size:15px; padding:14px 16px; margin:0; border:1px dashed var(--line); border-radius:var(--radius)}
+
+/* inputs */
+.in{width:100%; background:var(--surface2); border:1px solid transparent; border-radius:14px; padding:12px 14px; font-size:16px; outline:none}
+.in:focus{border-color:var(--violet-l)}
+.in::placeholder{color:var(--faint)}
+textarea.in{resize:none}
+select.in{appearance:none; -webkit-appearance:none; background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%); background-position:calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size:5px 5px; background-repeat:no-repeat; padding-right:30px}
+input[type=date].in{min-height:46px}
+label.lbl{display:block; font-size:12px; font-weight:600; color:var(--muted); margin:16px 2px 7px; text-transform:uppercase; letter-spacing:.1em}
+
+.btn{display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:46px; padding:0 18px; border-radius:14px; background:var(--surface2); font-weight:600; font-size:16px}
+.btn.primary{background:var(--mint); color:var(--mint-ink)}
+.btn.ai{background:var(--grad); color:#fff}
+.btn.danger{color:var(--danger)}
+.btn.block{width:100%}
+.btn.sq{width:46px; padding:0; flex:none}
+.btn[disabled]{opacity:.55}
+.btn .ic{width:18px; height:18px}
+.icon-btn{width:46px; height:46px; border-radius:14px; background:var(--surface2); display:inline-flex; align-items:center; justify-content:center; color:var(--muted)}
+.icon-btn .ic{width:22px; height:22px}
+
+/* capture */
+.capture{border:1px solid transparent; background:linear-gradient(var(--surface),var(--surface)) padding-box, var(--grad) border-box; margin-top:14px}
+.capture textarea{border:0; background:transparent; padding:2px 2px 8px; font-size:17px; min-height:80px; width:100%; outline:none; resize:none}
+.capture textarea::placeholder{color:var(--faint)}
+.capture .row{display:flex; align-items:center; gap:8px}
+.capture .row .btn{margin-left:auto}
+.ai-pill{display:inline-flex; align-items:center; gap:5px; font-size:12px; font-weight:600; padding:6px 10px; border-radius:99px; background:var(--surface2); color:var(--muted)}
+.ai-pill.on{background:rgba(106,0,255,.22); color:var(--violet-l)}
+.ai-pill .ic{width:12px; height:12px}
+.cap-img{position:relative; margin:4px 0 10px}
+.cap-img img{max-height:140px; max-width:100%; border-radius:12px; display:block}
+.cap-img button{position:absolute; top:6px; left:6px; width:28px; height:28px; border-radius:99px; background:rgba(0,0,0,.7); color:#fff; display:flex; align-items:center; justify-content:center}
+.icon-btn.rec{background:var(--danger); color:#fff; animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 8px rgba(255,107,107,.18)}}
+.focus{padding:6px 14px}
+.sig{display:flex; gap:12px; align-items:flex-start; padding:10px 0; border-bottom:1px solid var(--line); font-size:15px; text-align:left; width:100%}
+.sig:last-child{border-bottom:0}
+.sig .ic{margin-top:2px; color:var(--mint)}
+.sig.warn .ic{color:var(--danger)}
+.sig.soon .ic{color:var(--warn)}
+.sig b{font-weight:600}
+.brief-btn{display:flex; align-items:center; gap:8px; width:100%; justify-content:center; margin-top:10px}
+.hints{display:flex; gap:8px; overflow-x:auto; margin:10px -16px 0; padding:0 16px; scrollbar-width:none}
+.hints::-webkit-scrollbar{display:none}
+.hint{flex:none; font-size:13px; padding:7px 12px; border-radius:99px; border:1px solid var(--line); color:var(--muted); white-space:nowrap}
+
+/* rows */
+.row-item{display:flex; align-items:flex-start; gap:12px; padding:12px 14px 12px 0; border-bottom:1px solid var(--line)}
+.row-item:last-child{border-bottom:0}
+.check{flex:none; width:26px; height:26px; margin-top:1px; border-radius:99px; border:2px solid #4a4a52; color:var(--mint-ink); display:flex; align-items:center; justify-content:center}
+.check .ic{width:15px; height:15px; stroke-width:3}
+.row-item.done .check{background:var(--mint); border-color:var(--mint)}
+.row-item.done .ri-title{text-decoration:line-through; color:var(--muted)}
+.dot{flex:none; width:26px; height:26px; display:flex; align-items:center; justify-content:center; color:var(--muted)}
+.ri-body{flex:1; min-width:0; text-align:left; display:flex; flex-direction:column; gap:3px}
+.ri-title{font-size:16px; word-wrap:break-word}
+.ri-sub{font-size:13px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical}
+.due{font-weight:600; color:var(--text)}
+.due.soon{color:var(--warn)}
+.due.over{color:var(--danger)}
+
+/* tiles (como tu brand board) */
+.grid{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.tile{border-radius:var(--radius); padding:16px; text-align:left; display:flex; flex-direction:column; gap:10px; min-height:118px; background:var(--surface); position:relative; overflow:hidden}
+.tile .em{width:42px; height:42px; border-radius:13px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.08)}
+.tile .em .ic{width:22px; height:22px}
+.tile .nm{font-weight:600; font-size:16px; line-height:1.2; letter-spacing:-.01em}
+.tile .ct{font-size:13px; opacity:.7; margin-top:auto}
+.t-lav{background:var(--lav); color:var(--lav-ink)}
+.t-violet{background:var(--violet); color:#fff}
+.t-mint{background:var(--mint); color:var(--mint-ink)}
+.t-grad{background:var(--grad); color:#fff}
+.t-dark{background:var(--surface); color:var(--text)}
+.t-lav .em,.t-mint .em{background:rgba(0,0,0,.08)}
+.t-violet .em,.t-grad .em{background:rgba(255,255,255,.16)}
+.cat-row{display:flex; align-items:center; gap:12px; width:100%; padding:12px 14px 12px 0; border-bottom:1px solid var(--line); text-align:left}
+.cat-row:last-child{border-bottom:0}
+.cat-row .em{width:38px; height:38px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex:none}
+.cat-row .em.t-dark{background:var(--surface2)}
+.cat-row .nm{flex:1; font-size:16px}
+.cat-row .ct{color:var(--muted); font-size:15px}
+.chev{color:var(--faint)}
+.add-row{display:flex; gap:8px; margin:12px 0 14px}
+.add-row .in{flex:1}
+.toggle-done{color:var(--mint); font-size:15px; padding:14px 2px 4px}
+.arcs{position:absolute; right:-16px; top:-6px; width:180px; height:120px; opacity:.5; pointer-events:none; z-index:-1}
+
+/* chat */
+.chat{display:flex; flex-direction:column; gap:12px; padding:8px 0 96px}
+.bubble{max-width:84%; padding:11px 15px; border-radius:20px; font-size:16px; word-wrap:break-word}
+.bubble.me{align-self:flex-end; background:var(--violet); color:#fff; border-bottom-right-radius:6px; white-space:pre-wrap}
+.bot-row{display:flex; gap:8px; align-items:flex-end; max-width:92%}
+.nx{flex:none; width:28px; height:28px; border-radius:9px; background:#000; display:flex; align-items:center; justify-content:center; box-shadow:0 0 0 1px var(--line); color:#fff}
+.nx svg{width:16px; height:16px}
+.bubble.bot{max-width:100%; background:var(--surface); border-bottom-left-radius:6px}
+.bubble.bot ul{margin:4px 0; padding-left:20px}
+.bubble.bot li{margin:2px 0}
+.bubble.bot p{margin:0 0 6px}
+.bubble.bot p:last-child{margin:0}
+.bubble.bot b{color:var(--mint); font-weight:600}
+.bubble .btn{margin-top:10px; min-height:40px; font-size:15px}
+.bubble.thinking{color:var(--muted); display:flex; gap:8px; align-items:center}
+.applied{font-size:13px; color:var(--mint); margin-top:8px; display:flex; gap:6px; align-items:center}
+.ask-hero{display:flex; flex-direction:column; align-items:flex-start; gap:10px; margin:14px 2px 6px}
+.ask-hero .nx{width:52px; height:52px; border-radius:16px}
+.ask-hero .nx svg{width:28px; height:28px}
+.chips{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
+.chip{background:var(--surface); border:1px solid var(--line); border-radius:99px; padding:9px 14px; font-size:15px; text-align:left}
+.ask-bar{position:fixed; left:0; right:0; bottom:calc(var(--tabbar) + env(safe-area-inset-bottom)); background:color-mix(in srgb, var(--bg) 92%, transparent); -webkit-backdrop-filter:blur(20px); backdrop-filter:blur(20px); padding:8px 16px; border-top:1px solid var(--line); z-index:5}
+.ask-bar .wrap{max-width:608px; margin:0 auto; display:flex; gap:8px; width:100%; align-items:flex-end}
+.ask-bar textarea{flex:1; max-height:140px; background:var(--surface)}
+
+/* tab bar */
+.tabbar{position:fixed; left:0; right:0; bottom:0; height:calc(var(--tabbar) + env(safe-area-inset-bottom)); padding-bottom:env(safe-area-inset-bottom); display:flex; background:color-mix(in srgb, var(--bg) 85%, transparent); -webkit-backdrop-filter:blur(22px); backdrop-filter:blur(22px); border-top:1px solid var(--line); z-index:10}
+.tab{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; font-size:11px; font-weight:600; color:var(--faint); position:relative}
+.tab svg{width:24px; height:24px}
+.tab[aria-current="page"]{color:var(--mint)}
+.tab[aria-current="page"]::after{content:''; position:absolute; top:0; width:26px; height:3px; border-radius:0 0 3px 3px; background:var(--mint)}
+
+/* sheet */
+#sheet{position:fixed; inset:0; z-index:30}
+.sheet-bg{position:absolute; inset:0; background:rgba(0,0,0,.6); animation:fade .2s}
+.sheet{position:absolute; left:0; right:0; bottom:0; max-height:92vh; overflow:auto; background:#19191b; border-radius:26px 26px 0 0; padding:8px 16px calc(20px + env(safe-area-inset-bottom)); animation:up .28s cubic-bezier(.2,.8,.2,1); max-width:640px; margin:0 auto; border-top:1px solid var(--line)}
+.sheet h3{font-size:22px; margin:8px 2px 4px; letter-spacing:-.015em}
+.grab{width:40px; height:5px; border-radius:99px; background:#3a3a40; margin:0 auto 8px}
+.sheet-actions{display:flex; gap:10px; margin-top:18px; position:sticky; bottom:0; background:#19191b; padding-top:8px}
+.sheet-actions .btn{flex:1}
+@keyframes up{from{transform:translateY(100%)}to{transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.pv{display:flex; gap:10px; background:var(--surface); border-radius:18px; padding:12px; margin-top:10px}
+.pv > input[type=checkbox]{width:22px; height:22px; accent-color:var(--mint); margin-top:2px; flex:none}
+.pv-body{flex:1; display:flex; flex-direction:column; gap:8px; min-width:0}
+.pv-row{display:flex; gap:8px}
+.pv-row > *{flex:1; min-width:0}
+.pv.off .pv-body{opacity:.4}
+.ch-op{font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.12em; color:var(--violet-l)}
+.ch-op.add{color:var(--mint)}
+.ch-op.del{color:var(--danger)}
+.ch-title{font-size:16px}
+.ch-diff{font-size:14px; color:var(--muted); display:flex; flex-direction:column; gap:2px}
+.ch-diff b{color:var(--text); font-weight:500}
+.review-reply{margin:4px 2px 0}
+.review-reply p{margin:0 0 4px}
+.review-reply ul{margin:4px 0; padding-left:18px}
+.nexo-ask{display:flex; gap:8px; align-items:center; margin:10px 0 2px; padding:8px; border-radius:18px; border:1px solid transparent; background:linear-gradient(var(--surface),var(--surface)) padding-box, var(--grad) border-box}
+.nexo-ask .in{flex:1; background:transparent; padding:10px 6px}
+.nexo-ask .nx{margin-left:4px}
+.icon-grid{display:grid; grid-template-columns:repeat(6,1fr); gap:8px}
+.icon-opt{aspect-ratio:1; border-radius:12px; background:var(--surface2); display:flex; align-items:center; justify-content:center; color:var(--muted)}
+.icon-opt.on{background:var(--mint); color:var(--mint-ink)}
+.swatches{display:flex; gap:12px; flex-wrap:wrap}
+.sw{width:42px; height:42px; border-radius:13px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+.sw.t-dark{background:var(--surface2)}
+.sw.on{outline:2px solid var(--mint); outline-offset:3px}
+
+/* settings */
+.set-row{display:flex; align-items:center; gap:14px; width:100%; padding:14px 14px 14px 0; border-bottom:1px solid var(--line); text-align:left; font-size:16px}
+.set-row:last-child{border-bottom:0}
+.set-row > .ic{color:var(--muted)}
+.set-row span.nm{flex:1}
+.set-row.danger, .set-row.danger > .ic{color:var(--danger)}
+.me-card{display:flex; align-items:center; gap:14px; margin-top:14px}
+.me-card .avatar{width:64px; height:64px}
+.me-card .nm{font-size:20px; font-weight:600}
+.help{font-size:14px; color:var(--muted); margin:10px 4px 0}
+.steps{margin:10px 0 0; padding-left:20px; font-size:15px}
+.steps li{margin:5px 0}
+
+/* onboarding */
+#onb{position:fixed; inset:0; z-index:40; background:var(--bg); overflow:auto; padding:calc(env(safe-area-inset-top) + 16px) 20px calc(env(safe-area-inset-bottom) + 20px)}
+#onb::before{content:''; position:fixed; left:-30%; right:-30%; top:-20vh; height:60vh; pointer-events:none; background:radial-gradient(40% 45% at 25% 45%, rgba(106,0,255,.45), transparent 70%), radial-gradient(32% 40% at 80% 30%, rgba(16,16,255,.35), transparent 70%), radial-gradient(26% 32% at 55% 72%, rgba(138,247,149,.14), transparent 70%); filter:blur(30px)}
+.onb{max-width:520px; margin:0 auto; min-height:100%; display:flex; flex-direction:column; position:relative}
+.prog{height:4px; background:var(--line); border-radius:99px; overflow:hidden; margin:6px 0 32px}
+.prog i{display:block; height:100%; background:linear-gradient(90deg,var(--violet),var(--blue),var(--mint)); transition:width .35s}
+.onb h2{font-size:30px; line-height:1.15; margin:0 0 10px; letter-spacing:-.025em}
+.onb p{color:var(--muted); margin:0 0 18px}
+.onb textarea.in{min-height:120px}
+.onb .actions{margin-top:auto; display:flex; flex-direction:column; gap:10px; padding-top:26px}
+.onb .skip{color:var(--muted); font-size:16px; padding:10px}
+.brand{display:flex; align-items:center; gap:14px; margin:26px 0 26px}
+.brand img{width:68px; height:68px; border-radius:18px; box-shadow:0 0 0 1px #2c2c30, 0 18px 40px rgba(106,0,255,.35)}
+.brand .wm{font-size:40px; font-weight:600; letter-spacing:-.03em; line-height:1}
+.brand .tag{font-size:14px; color:var(--muted); margin-top:4px}
+.feat{display:flex; gap:14px; margin:14px 0; font-size:16px; align-items:center}
+.feat b{display:block; font-weight:600}
+.feat .em{flex:none; width:44px; height:44px; border-radius:14px; display:flex; align-items:center; justify-content:center}
+.feat .em .ic, .feat .em svg{width:22px; height:22px}
+
+/* toast */
+#toast{position:fixed; left:50%; bottom:calc(var(--tabbar) + env(safe-area-inset-bottom) + 78px); transform:translateX(-50%); background:var(--lav); color:var(--lav-ink); font-weight:500; padding:11px 16px; border-radius:14px; font-size:15px; z-index:50; width:max-content; max-width:90vw; opacity:0; pointer-events:none; transition:opacity .2s; box-shadow:0 10px 30px rgba(0,0,0,.4); display:flex; align-items:center; gap:14px}
+#toast.show{opacity:1}
+#toast.show.interactive{pointer-events:auto}
+#toast button{font-weight:700; color:var(--violet)}
+.spin{display:inline-block; width:16px; height:16px; border:2px solid currentColor; border-right-color:transparent; border-radius:99px; animation:sp .7s linear infinite; flex:none}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<main id="view"></main>
+
+<nav class="tabbar" aria-label="Secciones">
+  <button class="tab" data-tab="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>Inicio</button>
+  <button class="tab" data-tab="lists"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1" fill="currentColor"/><circle cx="4.5" cy="12" r="1" fill="currentColor"/><circle cx="4.5" cy="18" r="1" fill="currentColor"/></svg>Listas</button>
+  <button class="tab" data-tab="ask"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C13.6 9.9 14.1 10.4 22 12C14.1 13.6 13.6 14.1 12 22C10.4 14.1 9.9 13.6 2 12C9.9 10.4 10.4 9.9 12 2Z"/></svg>Nexo</button>
+  <button class="tab" data-tab="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Ajustes</button>
+</nav>
+
+<div id="sheet" hidden></div>
+<div id="onb" hidden></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<input type="file" id="fileImg" accept="image/*" hidden>
+<input type="file" id="fileBackup" accept="application/json,.json" hidden>
+<input type="file" id="fileAvatar" accept="image/*" hidden>
+
+<script>
+'use strict';
+/* ============================== utilidades ============================== */
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const pad = (n) => String(n).padStart(2, '0');
+const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parseYmd = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const isYmd = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(parseYmd(s));
+const fmtDate = (s) => isYmd(s) ? parseYmd(s).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }) : 'sin fecha';
+const today0 = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
+const DAY = 86400000;
+
+function lsGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); return true; } catch { return false; } }
+function lsDel(k) { try { localStorage.removeItem(k); } catch {} }
+
+/* ============================== iconos (línea, minimalistas) ============================== */
+const ICONS = {
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18.5 14.4c1.9.7 3 2.7 3 5.6"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/>',
+  gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v8a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-8"/><path d="M12 8C10.5 5 7 4.5 7 6.8 7 8 9 8 12 8zM12 8c1.5-3 5-3.5 5-1.2C17 8 15 8 12 8z"/>',
+  book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/>',
+  plane: '<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>',
+  bag: '<path d="M5.5 7h13l1 14h-15z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/>',
+  drop: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>',
+  heart: '<path d="M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0 1 12 7.3a4.2 4.2 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/>',
+  note: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+  folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
+  briefcase: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M3 13h18"/>',
+  star: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>',
+  cart: '<circle cx="9" cy="20" r="1.3"/><circle cx="18" cy="20" r="1.3"/><path d="M2 3h3l2.4 12.2a1 1 0 0 0 1 .8h9.5a1 1 0 0 0 1-.8L21 7H6"/>',
+  car: '<path d="M4 17v-5l2-5h12l2 5v5z"/><path d="M4 12h16"/><circle cx="7.5" cy="17" r="1.6"/><circle cx="16.5" cy="17" r="1.6"/>',
+  health: '<rect x="3" y="3" width="18" height="18" rx="5"/><path d="M12 8v8M8 12h8"/>',
+  tag: '<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.3"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  cake: '<path d="M4 21V13a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8M3 21h18"/><path d="M4 16c1.3 1 2.7 1 4 0s2.7-1 4 0 2.7 1 4 0 2.7-1 4 0"/><path d="M12 11V7"/>',
+  music: '<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
+  cup: '<path d="M4 8h13v6a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17M8 2v3M12 2v3"/>',
+  paw: '<circle cx="12" cy="16" r="4"/><circle cx="5.5" cy="10" r="2"/><circle cx="18.5" cy="10" r="2"/><circle cx="9" cy="5.5" r="2"/><circle cx="15" cy="5.5" r="2"/>',
+  dollar: '<path d="M12 2v20"/><path d="M17 6.5c-1-1.5-2.8-2-5-2-2.8 0-4.5 1.3-4.5 3.3 0 4.7 9.7 2.3 9.7 7.2 0 2.1-1.9 3.5-5 3.5-2.3 0-4.2-.8-5.2-2.3"/>',
+  // interfaz
+  camera: '<path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/>',
+  clipboard: '<rect x="5" y="4" width="14" height="17" rx="2"/><rect x="9" y="2.5" width="6" height="3.5" rx="1"/>',
+  x: '<path d="M6 6l12 12M18 6 6 18"/>',
+  check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  repeat: '<path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/>',
+  trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/>',
+  pencil: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
+  upload: '<path d="M12 15V3M7 8l5-5 5 5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/>',
+  download: '<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/>',
+  chat: '<path d="M4 5h16v11H9l-5 4z"/>',
+  right: '<path d="M9 6l6 6-6 6"/>',
+  left: '<path d="M15 6l-6 6 6 6"/>',
+  up: '<path d="M12 19V5M5 12l7-7 7 7"/>',
+  down: '<path d="M12 5v14M5 12l7 7 7-7"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  calplus: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/>',
+  mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+  bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+  alert: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5M12 16h.01"/>',
+  key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/>',
+};
+const ic = (name, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ICONS.folder}</svg>`;
+const SPARK = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C13.6 9.9 14.1 10.4 22 12C14.1 13.6 13.6 14.1 12 22C10.4 14.1 9.9 13.6 2 12C9.9 10.4 10.4 9.9 12 2Z"/></svg>';
+const LIST_ICONS = ['users', 'user', 'gift', 'book', 'plane', 'bag', 'drop', 'heart', 'note', 'folder', 'calendar', 'home', 'briefcase', 'star', 'cart', 'car', 'health', 'tag', 'sun', 'cake', 'music', 'cup', 'paw', 'dollar'];
+const COLORS = ['lav', 'violet', 'mint', 'grad', 'dark'];
+const COLOR_NAMES = { lav: 'Lavanda', violet: 'Violeta', mint: 'Menta', grad: 'Degradado', dark: 'Grafito' };
+const ARCS = '<svg class="arcs" viewBox="0 0 180 120" fill="none" aria-hidden="true">' +
+  [30, 55, 80, 105, 130, 155].map((r, i) => `<path d="M${180 - r} 0A${r} ${r} 0 0 0 180 ${r}" stroke="${i === 2 ? '#8af795' : '#6a00ff'}" stroke-width="1.2"/>`).join('') + '</svg>';
+
+/* ============================== toast + deshacer ============================== */
+let toastT, UNDO = null;
+function toast(msg, opt = {}) {
+  const t = $('#toast');
+  t.innerHTML = `<span>${esc(msg)}</span>${opt.undo ? '<button data-act="undo">Deshacer</button>' : ''}`;
+  t.classList.toggle('interactive', !!opt.undo);
+  t.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), opt.undo ? 6000 : (opt.ms || 2600));
+}
+function snapshot() { UNDO = JSON.stringify(S); }
+function undo() {
+  if (!UNDO) return;
+  S = JSON.parse(UNDO); UNDO = null; save(); render();
+  $('#toast').classList.remove('show'); toast('Listo, lo regresé como estaba');
+}
+function setBusy(btn, on, label) {
+  if (!btn) return;
+  if (on) { btn.dataset.label = btn.innerHTML; btn.disabled = true; btn.innerHTML = `<span class="spin"></span>${label ? ' ' + esc(label) : ''}`; }
+  else { btn.disabled = false; if (btn.dataset.label) btn.innerHTML = btn.dataset.label; }
+}
+
+/* ============================== datos ============================== */
+const STORE = 'cerebro.data.v1', KEY_STORE = 'cerebro.gemini.key', MODEL_STORE = 'cerebro.gemini.model', AVATAR_STORE = 'cerebro.avatar';
+const DEFAULT_CATS = [
+  { id: 'perfil', name: 'Familia y yo', icon: 'users', color: 'lav', system: true },
+  { id: 'regalos', name: 'Ideas de regalo', icon: 'gift', color: 'violet' },
+  { id: 'colegio', name: 'Colegio', icon: 'book', color: 'mint' },
+  { id: 'vallarta', name: 'Viaje a Puerto Vallarta', icon: 'plane', color: 'grad' },
+  { id: 'compras', name: 'Compras personales', icon: 'bag', color: 'dark' },
+  { id: 'skincare', name: 'Skincare', icon: 'drop', color: 'dark' },
+  { id: 'goodies', name: 'Goodies para Maru', icon: 'heart', color: 'lav' },
+  { id: 'notas', name: 'Notas', icon: 'note', color: 'violet', system: true },
+];
+function freshData() {
+  return { v: 2, onboarded: false, profile: { spouse: 'Maru', kids: 'Samantha' }, cats: DEFAULT_CATS.map((c) => ({ ...c })), items: [] };
+}
+function migrate(d) {
+  // v1 → v2: iconos de línea en vez de emoji, colores editables, nombres de la familia
+  const def = Object.fromEntries(DEFAULT_CATS.map((c) => [c.id, c]));
+  d.cats.forEach((c, i) => {
+    if (!c.icon || !ICONS[c.icon]) c.icon = def[c.id]?.icon || 'folder';
+    if (!COLORS.includes(c.color)) c.color = def[c.id]?.color || ['lav', 'violet', 'mint', 'grad', 'dark', 'dark'][i % 6];
+    delete c.emoji;
+  });
+  const g = d.cats.find((c) => c.id === 'goodies'); if (g && g.name === 'Goodies para mi esposa') g.name = 'Goodies para Maru';
+  const p = d.cats.find((c) => c.id === 'perfil'); if (p && p.name === 'Sobre mí y mi familia') p.name = 'Familia y yo';
+  d.profile = d.profile || {};
+  if (!d.profile.spouse) d.profile.spouse = 'Maru';
+  if (!d.profile.kids) d.profile.kids = 'Samantha';
+  d.v = 2;
+  return d;
+}
+function load() {
+  try { const d = JSON.parse(lsGet(STORE)); if (d && Array.isArray(d.items) && Array.isArray(d.cats)) return migrate(d); } catch {}
+  return freshData();
+}
+let S = load();
+function save() { if (!lsSet(STORE, JSON.stringify(S))) toast('No se pudo guardar en el teléfono'); }
+
+const getKey = () => lsGet(KEY_STORE) || '';
+const getModel = () => lsGet(MODEL_STORE) || 'gemini-2.5-flash';
+const hasAI = () => !!getKey();
+const getAvatar = () => lsGet(AVATAR_STORE) || 'avatar.png';
+const cat = (id) => S.cats.find((c) => c.id === id);
+const catName = (id) => cat(id)?.name || 'Notas';
+const catColor = (c) => (COLORS.includes(c.color) ? c.color : 'dark');
+const spouse = () => (S.profile.spouse || '').trim();
+const kid = () => (S.profile.kids || '').trim().split(/[\s,]/)[0] || '';
+const getItem = (id) => S.items.find((i) => i.id === id);
+
+function addItem(o) {
+  const it = {
+    id: uid(), title: String(o.title || '').trim().slice(0, 200), notes: String(o.notes || '').trim(),
+    cat: cat(o.cat) ? o.cat : 'notas', date: isYmd(o.date) ? o.date : '', repeat: o.repeat === 'yearly' ? 'yearly' : '',
+    kind: o.kind || '', done: false, created: Date.now(), updated: Date.now(), pkey: o.pkey || undefined,
+  };
+  if (!it.title) return null;
+  S.items.push(it); return it;
+}
+function findCat(value) {
+  if (!value) return null;
+  if (cat(value)) return cat(value);
+  return S.cats.find((c) => norm(c.name) === norm(value)) || null;
+}
+function ensureCategory(value, icon, color) {
+  if (!value) return 'notas';
+  const f = findCat(value); if (f) return f.id;
+  const id = norm(value).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) + '-' + uid().slice(-4);
+  S.cats.push({ id, name: String(value).slice(0, 40), icon: LIST_ICONS.includes(icon) ? icon : 'folder', color: COLORS.includes(color) ? color : 'dark' });
+  return id;
+}
+function removeList(id) {
+  const c = cat(id); if (!c || c.system) return;
+  S.items.forEach((i) => { if (i.cat === id) i.cat = 'notas'; });
+  S.cats = S.cats.filter((x) => x.id !== id);
+}
+
+/* fechas */
+function effectiveDate(it) {
+  if (!it.date) return null;
+  let d = parseYmd(it.date);
+  if (it.repeat === 'yearly') {
+    const t = today0();
+    d = new Date(t.getFullYear(), d.getMonth(), d.getDate());
+    if (d < t) d.setFullYear(d.getFullYear() + 1);
+  }
+  return d;
+}
+function relDate(d) {
+  const days = Math.round((d - today0()) / DAY);
+  if (days === 0) return 'Hoy';
+  if (days === 1) return 'Mañana';
+  if (days === -1) return 'Ayer';
+  if (days < 0) return `Vencido hace ${-days} días`;
+  if (days < 7) return `En ${days} días`;
+  const opts = { day: 'numeric', month: 'short' };
+  if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
+  return d.toLocaleDateString('es-MX', opts);
+}
+function dueClass(it) {
+  const d = effectiveDate(it);
+  if (!d || it.done) return '';
+  if (d < today0()) return 'over';
+  return d - today0() <= 3 * DAY ? 'soon' : '';
+}
+function upcoming(limit = 6) {
+  return S.items.filter((i) => i.date && !i.done)
+    .map((i) => [i, effectiveDate(i)]).filter(([, d]) => d - today0() <= 120 * DAY)
+    .sort((a, b) => a[1] - b[1]).slice(0, limit).map(([i]) => i);
+}
+function sortItems(list) {
+  return list.slice().sort((a, b) => {
+    const da = effectiveDate(a), db = effectiveDate(b);
+    if (da && db) return da - db;
+    if (da) return -1; if (db) return 1;
+    return b.created - a.created;
+  });
+}
+
+/* ============================== perfil / bienvenida ============================== */
+const QUESTIONS = [
+  { k: 'name', label: 'Mi nombre', q: '¿Cómo te llamas?', ph: 'Tu nombre', short: true },
+  { k: 'spouse', label: 'Mi esposa', q: '¿Cómo se llama tu esposa?', ph: 'Su nombre', short: true },
+  { k: 'spouseBday', label: 'Cumpleaños de {E}', q: '¿Cuándo es el cumpleaños de {E}?', type: 'date' },
+  { k: 'anniv', label: 'Nuestro aniversario', q: '¿Cuándo es su aniversario?', type: 'date' },
+  { k: 'myBday', label: 'Mi cumpleaños', q: '¿Y tu cumpleaños?', type: 'date' },
+  { k: 'kids', label: 'Hijos y colegio', q: 'Cuéntame de tus hijos: nombre, edad, colegio y grado.', ph: 'Ej: Samantha, 8 años, 3ro de primaria en Colegio X' },
+  { k: 'kidBday', label: 'Cumpleaños de {K}', q: '¿Cuándo es el cumpleaños de {K}?', type: 'date' },
+  { k: 'mySizes', label: 'Mis tallas', q: '¿Cuáles son tus tallas?', ph: 'Ej: camisa M, pantalón 32x32, zapatos 9 US' },
+  { k: 'myStyle', label: 'Mis gustos (perfumes, ropa, marcas)', q: '¿Qué perfumes, marcas o estilo de ropa te gustan?', ph: 'Ej: Bleu de Chanel, tenis Nike, camisas de lino' },
+  { k: 'mySkin', label: 'Mi piel y skincare', q: '¿Cómo es tu piel y qué productos de skincare usas?', ph: 'Ej: piel mixta, limpiador CeraVe, protector La Roche-Posay' },
+  { k: 'spouseLikes', label: 'Gustos de {E}', q: '¿Qué le gusta a {E}? Perfumes, maquillaje, marcas, colores, flores…', ph: 'Ej: Rare Beauty, perfume Delina, tulipanes blancos' },
+  { k: 'spouseSizes', label: 'Tallas de {E}', q: '¿Sabes las tallas de {E}?', ph: 'Ej: ropa S, zapatos 6.5, anillo 6' },
+  { k: 'trips', label: 'Próximos viajes', q: '¿Tienes viajes próximos?', ph: 'Ej: Puerto Vallarta del 20 al 27 de diciembre' },
+  { k: 'other', label: 'Otros datos', q: '¿Algo más que deba saber de ti o tu familia?', ph: 'Alergias, mascotas, preferencias, fechas importantes…' },
+];
+const fillE = (s) => s.replace(/\{E\}/g, spouse() || 'tu esposa').replace(/\{K\}/g, kid() || 'tu hija');
+
+function syncProfileFacts() {
+  S.items = S.items.filter((i) => !i.pkey);
+  for (const q of QUESTIONS) {
+    const v = (S.profile[q.k] || '').trim();
+    if (!v) continue;
+    const label = fillE(q.label).replace('tu esposa', 'mi esposa').replace('tu hija', 'mi hija');
+    if (q.type === 'date') addItem({ title: label, cat: 'perfil', date: v, repeat: 'yearly', kind: 'evento', pkey: q.k });
+    else addItem({ title: `${label}: ${v}`, cat: 'perfil', kind: 'dato', pkey: q.k });
+  }
+}
+
+let onbStep = 0;
+function openOnboarding(start = 0) { onbStep = start; $('#onb').hidden = false; document.body.classList.add('noscroll'); renderOnb(); }
+function closeOnboarding() {
+  S.onboarded = true; syncProfileFacts(); save();
+  $('#onb').hidden = true; document.body.classList.remove('noscroll'); render();
+}
+function renderOnb() {
+  const total = QUESTIONS.length + 2;
+  const el = $('#onb');
+  const prog = `<div class="prog"><i style="width:${Math.round((onbStep / (total - 1)) * 100)}%"></i></div>`;
+  if (onbStep === 0) {
+    el.innerHTML = `<div class="onb">
+      <div class="brand"><img src="icon-192.png" alt=""><div><div class="wm">Nexo</div><div class="tag">Tu segundo cerebro</div></div></div>
+      <h2>Todo lo importante, en un solo lugar.</h2>
+      <p>Guarda aquí lo que no quieres olvidar. Todo se queda en tu teléfono y las respuestas salen solo de lo que tú le cuentes.</p>
+      <div class="feat"><span class="em t-violet">${ic('gift')}</span><div><b>Ideas de regalo</b><span class="muted small">"A Maru le encantó ese perfume"</span></div></div>
+      <div class="feat"><span class="em t-mint">${ic('book')}</span><div><b>Correos y avisos</b><span class="muted small">Pega el correo del colegio o una captura y lo organiza con fechas</span></div></div>
+      <div class="feat"><span class="em t-lav">${ic('pencil')}</span><div><b>Todo se puede editar</b><span class="muted small">"Mueve el perfume a Goodies y cámbialo al viernes"</span></div></div>
+      <div class="feat"><span class="em t-grad">${SPARK}</span><div><b>Pregúntale a Nexo</b><span class="muted small">"¿Qué le regalo a Maru en su cumpleaños?"</span></div></div>
+      <div class="actions"><button class="btn primary block" data-onb="next">Empezar</button>
+      <p class="small" style="text-align:center">Primero unas preguntas rápidas para llenar tu memoria. Puedes saltar las que quieras.</p></div>
+    </div>`;
+  } else if (onbStep <= QUESTIONS.length) {
+    const q = QUESTIONS[onbStep - 1];
+    const v = S.profile[q.k] || '';
+    const input = q.type === 'date'
+      ? `<input class="in" type="date" id="onbIn" value="${esc(v)}">`
+      : q.short ? `<input class="in" id="onbIn" value="${esc(v)}" placeholder="${esc(q.ph || '')}" autocomplete="off">`
+      : `<textarea class="in" id="onbIn" placeholder="${esc(fillE(q.ph || ''))}">${esc(v)}</textarea>`;
+    el.innerHTML = `<div class="onb">${prog}
+      <div class="eyebrow">Pregunta ${onbStep} de ${QUESTIONS.length}</div>
+      <h2 style="margin-top:8px">${esc(fillE(q.q))}</h2>
+      ${q.type === 'date' ? '<p>Se agregará a tus fechas importantes y se repetirá cada año.</p>' : '<p>Escribe como quieras, sin formato. Siempre podrás editarlo.</p>'}
+      ${input}
+      <div class="actions"><button class="btn primary block" data-onb="next">Siguiente</button>
+      <button class="skip" data-onb="skip">Saltar</button>
+      ${onbStep > 1 ? '<button class="skip" data-onb="prev">Atrás</button>' : ''}</div>
+    </div>`;
+    setTimeout(() => { const i = $('#onbIn'); if (i && q.type !== 'date') i.focus(); }, 50);
+  } else {
+    el.innerHTML = `<div class="onb">${prog}
+      <div class="eyebrow">Último paso · opcional</div>
+      <h2 style="margin-top:8px">Conecta Gemini</h2>
+      <p>Con Gemini, Nexo entiende correos y capturas, organiza todo solo, edita lo que ya guardaste y responde tus preguntas. Sin Gemini igual funciona como memoria y listas.</p>
+      ${geminiHowTo()}
+      <label class="lbl" for="onbKey">Tu clave de Gemini API</label>
+      <input class="in" id="onbKey" type="password" placeholder="Pega aquí tu clave" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(getKey())}">
+      <div class="actions"><button class="btn primary block" data-onb="key">Conectar y terminar</button>
+      <button class="skip" data-onb="finish">Ahora no</button></div>
+    </div>`;
+  }
+}
+function geminiHowTo() {
+  return `<ol class="steps">
+    <li>Abre <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> con tu cuenta personal de Google.</li>
+    <li>Toca <b>Create API key</b> y cópiala.</li>
+    <li>Pégala aquí. Se guarda solo en este teléfono.</li></ol>`;
+}
+async function onbAction(a) {
+  if (a === 'next' || a === 'skip' || a === 'prev') {
+    if (onbStep >= 1 && onbStep <= QUESTIONS.length && a === 'next') {
+      const q = QUESTIONS[onbStep - 1];
+      const v = ($('#onbIn').value || '').trim();
+      if (v) S.profile[q.k] = v; else delete S.profile[q.k];
+      save();
+    }
+    onbStep += a === 'prev' ? -1 : 1;
+    renderOnb(); $('#onb').scrollTop = 0;
+  } else if (a === 'finish') {
+    closeOnboarding(); toast('Tu memoria está lista');
+  } else if (a === 'key') {
+    const btn = $('[data-onb="key"]');
+    const k = $('#onbKey').value.trim();
+    if (!k) { closeOnboarding(); return; }
+    setBusy(btn, true, 'Probando…');
+    try { await connectKey(k); closeOnboarding(); toast('Gemini conectado'); }
+    catch (e) { toast(e.message, { ms: 4000 }); }
+    finally { setBusy(btn, false); }
+  }
+}
+
+/* ============================== Gemini ============================== */
+const API = 'https://generativelanguage.googleapis.com/v1beta';
+async function apiError(r) {
+  let msg = '';
+  try { msg = (await r.json()).error?.message || ''; } catch {}
+  if (r.status === 400 && /api key/i.test(msg)) return new Error('La clave de Gemini no es válida. Revísala en Ajustes.');
+  if (r.status === 403) return new Error('Gemini rechazó la clave (403). Verifica que esté activa.');
+  if (r.status === 404) return new Error('Ese modelo no está disponible. Elige otro en Ajustes.');
+  if (r.status === 429) return new Error('Llegaste al límite de uso de Gemini. Intenta en un minuto.');
+  if (r.status >= 500) return new Error('Gemini tuvo un problema. Intenta de nuevo.');
+  return new Error('Gemini: ' + (msg || 'error ' + r.status));
+}
+async function gfetch(url, opts = {}, ms = 90000) {
+  const ac = new AbortController(); const t = setTimeout(() => ac.abort(), ms);
+  try { return await fetch(url, { ...opts, signal: ac.signal }); }
+  catch (e) { throw new Error(e.name === 'AbortError' ? 'Gemini tardó demasiado. Intenta de nuevo.' : 'Sin conexión a internet.'); }
+  finally { clearTimeout(t); }
+}
+async function listModels(key) {
+  const r = await gfetch(`${API}/models?pageSize=200`, { headers: { 'x-goog-api-key': key } }, 20000);
+  if (!r.ok) throw await apiError(r);
+  const j = await r.json();
+  return (j.models || [])
+    .filter((m) => (m.supportedGenerationMethods || []).includes('generateContent'))
+    .map((m) => m.name.replace(/^models\//, ''))
+    .filter((n) => /^gemini-/.test(n) && !/(image|tts|audio|live|embed|vision|computer|robotics|native|learnlm)/.test(n));
+}
+function pickModel(names) {
+  const score = (n) => {
+    const m = n.match(/^gemini-(\d+(?:\.\d+)?)-(flash|pro)(-lite)?(.*)$/);
+    if (!m) return -1;
+    let s = parseFloat(m[1]) * 100 + (m[2] === 'flash' && !m[3] ? 50 : m[3] ? 20 : 10);
+    if (m[4]) s -= 60;
+    return s;
+  };
+  return names.slice().sort((a, b) => score(b) - score(a))[0] || 'gemini-2.5-flash';
+}
+let MODELS = [];
+async function connectKey(k) {
+  const names = await listModels(k);
+  MODELS = names;
+  lsSet(KEY_STORE, k);
+  const cur = lsGet(MODEL_STORE);
+  if (!cur || !names.includes(cur)) lsSet(MODEL_STORE, pickModel(names));
+}
+function parseJSON(txt) {
+  try { return JSON.parse(txt); } catch {}
+  const m = txt.match(/\{[\s\S]*\}/);
+  if (m) { try { return JSON.parse(m[0]); } catch {} }
+  throw new Error('No entendí la respuesta de Gemini. Intenta de nuevo.');
+}
+async function gemini({ system, parts, history = [], schema }) {
+  const key = getKey();
+  if (!key) throw new Error('Conecta Gemini en Ajustes.');
+  const body = {
+    systemInstruction: { parts: [{ text: system }] },
+    contents: [...history, { role: 'user', parts }],
+    generationConfig: { temperature: 0.4, responseMimeType: 'application/json' },
+  };
+  if (schema) body.generationConfig.responseSchema = schema;
+  const post = () => gfetch(`${API}/models/${encodeURIComponent(getModel())}:generateContent`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(body),
+  });
+  let r = await post();
+  if (!r.ok && r.status === 400 && schema) { delete body.generationConfig.responseSchema; r = await post(); }
+  if (!r.ok) throw await apiError(r);
+  const j = await r.json();
+  const txt = (j.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || '').join('');
+  if (!txt) throw new Error('Gemini no respondió' + (j.promptFeedback?.blockReason ? ` (${j.promptFeedback.blockReason})` : '') + '.');
+  return parseJSON(txt);
+}
+
+/* Nexo entiende comandos: guardar, editar, mover, completar, borrar, organizar listas o responder */
+const OPS = ['add', 'update', 'done', 'undone', 'delete', 'add_list', 'update_list', 'delete_list'];
+const ACTION_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    op: { type: 'STRING', enum: OPS },
+    id: { type: 'STRING' }, title: { type: 'STRING' }, category: { type: 'STRING' }, date: { type: 'STRING' },
+    notes: { type: 'STRING' }, repeat: { type: 'STRING' }, name: { type: 'STRING' }, icon: { type: 'STRING' }, color: { type: 'STRING' },
+  },
+  required: ['op'],
+};
+const CMD_SCHEMA = { type: 'OBJECT', properties: { reply: { type: 'STRING' }, actions: { type: 'ARRAY', items: ACTION_SCHEMA } }, required: ['reply', 'actions'] };
+
+function todayLine() {
+  const d = new Date();
+  return `Hoy es ${d.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} (${ymd(d)}).`;
+}
+function whoLine() {
+  const n = S.profile.name, e = spouse(), k = (S.profile.kids || '').trim();
+  return `El usuario se llama ${n || '(sin nombre)'}${e ? `; su esposa se llama ${e}` : ''}${k ? `; hijos: ${k}` : ''}.`;
+}
+function memoryText() {
+  const out = S.cats.map((c) => {
+    const its = S.items.filter((i) => i.cat === c.id);
+    const head = `## ${c.name} [lista id:${c.id}${c.system ? ', fija' : ''}]`;
+    if (!its.length) return head + '\n(vacía)';
+    return head + '\n' + its.map((i) =>
+      `- [id:${i.id}] ${i.done ? '[hecho] ' : ''}${i.title}` +
+      (i.date ? ` (fecha: ${i.date}${i.repeat === 'yearly' ? ', cada año' : ''})` : '') +
+      (i.notes ? ` — ${i.notes.replace(/\s*\n\s*/g, ' / ')}` : '') +
+      ` {guardado ${ymd(new Date(i.created))}}`
+    ).join('\n');
+  });
+  return out.join('\n\n');
+}
+function commandSystem() {
+  return `Eres Nexo, el "segundo cerebro" personal del usuario. ${whoLine()} ${todayLine()}
+El usuario te escribe para: (a) guardar información nueva, (b) cambiar, mover, completar o borrar cosas que ya guardó, (c) organizar sus listas, o (d) preguntarte algo sobre su memoria. A veces comparte correos o capturas de pantalla.
+
+Tu estilo: directo, práctico y con energía de alguien que construye. Piensas como alguien que usa la IA para ganar tiempo y enfocarse en lo que importa: la familia, el trabajo creativo y avanzar. Nada de relleno; prioriza lo accionable. Si ves algo útil (una fecha que se acerca, un regalo pendiente, algo vencido), sugiérelo de forma proactiva.
+
+Responde con JSON:
+- reply: respuesta breve en español, cálida y práctica. Usa "- " para viñetas y **negritas** para lo clave. Si propones cambios, resume en una frase qué vas a hacer. Si es una pregunta, respóndela SOLO con base en la memoria (puedes razonar y recomendar, citando de dónde sale); si el dato no está, dilo y sugiere qué agregar.
+- actions: lista de cambios a proponer (vacía si solo es una pregunta). Operaciones:
+  · add: elemento nuevo → title, category, date, notes, repeat.
+  · update: editar un elemento existente → id (el [id:...] de la memoria) + SOLO los campos que cambian. Usa category para moverlo a otra lista. date "none" quita la fecha. notes reemplaza las notas completas (conserva lo anterior si sigue siendo útil). repeat "yearly" o "none".
+  · done / undone: marcar como hecho o pendiente → id.
+  · delete: borrar un elemento → id. Solo si el usuario lo pide claramente.
+  · add_list: lista nueva → name, icon, color.
+  · update_list: renombrar o cambiar icono/color de una lista → id de la lista + name/icon/color.
+  · delete_list: borrar una lista (sus elementos pasan a Notas) → id. Nunca borres listas fijas.
+
+Reglas:
+- category: id de una lista existente, o el nombre de una lista nueva (en ese caso agrega también un add_list con su icon y color).
+- Divide la información nueva en elementos individuales y útiles (ej. cada útil escolar o producto). Si son muchos, agrupa con sentido (máx ~25).
+- Lo que ${spouse() || 'su esposa'} menciona que le gustaría o le encanta va en "regalos". Maquillaje, perfumes o caprichos para comprarle van en "goodies".
+- Datos sobre el usuario o su familia (tallas, gustos, alergias, colegio) van en "perfil".
+- date en formato YYYY-MM-DD solo si hay una fecha real o límite. Para compras con fecha límite (ej. útiles antes del inicio de clases) propone una fecha tentativa de compra 10 a 14 días antes y explica en notes la fecha límite real.
+- Si el usuario dice "eso", "lo anterior", "el último", usa la conversación y la memoria para identificar el elemento. Si no estás seguro de a cuál se refiere, pregúntalo en reply y no propongas acciones.
+- Nunca inventes datos. title corto (máx 80 caracteres); notes con detalles (marca, talla, cantidad, precio, link, quién lo mencionó).
+- Iconos disponibles para listas: ${LIST_ICONS.join(', ')}. Colores: ${COLORS.join(', ')}.
+
+MEMORIA DEL USUARIO:
+${memoryText()}`;
+}
+function cleanActions(list) {
+  const out = [];
+  for (const a of Array.isArray(list) ? list : []) {
+    if (!a || !OPS.includes(a.op)) continue;
+    const x = {
+      op: a.op, id: String(a.id || '').replace(/^id:/, '').trim(),
+      title: String(a.title || '').trim().slice(0, 200), category: String(a.category || '').trim(),
+      date: a.date === 'none' ? 'none' : isYmd(a.date) ? a.date : '',
+      notes: String(a.notes || '').trim(), repeat: a.repeat === 'yearly' || a.repeat === 'none' ? a.repeat : '',
+      name: String(a.name || '').trim().slice(0, 40), icon: LIST_ICONS.includes(a.icon) ? a.icon : '', color: COLORS.includes(a.color) ? a.color : '',
+    };
+    if (x.op === 'add' && !x.title) continue;
+    if (['update', 'done', 'undone', 'delete'].includes(x.op) && !getItem(x.id)) continue;
+    if (x.op === 'add_list' && !x.name) continue;
+    if (['update_list', 'delete_list'].includes(x.op) && !cat(x.id)) continue;
+    if (x.op === 'delete_list' && cat(x.id).system) continue;
+    out.push(x);
+  }
+  return out.slice(0, 40);
+}
+async function aiCommand(text, img, history = []) {
+  const parts = [];
+  if (img) parts.push({ inlineData: { mimeType: img.mimeType, data: img.data } });
+  parts.push({ text: text || 'Extrae la información importante de esta imagen y guárdala.' });
+  const r = await gemini({ system: commandSystem(), parts, history, schema: CMD_SCHEMA });
+  return { reply: String(r.reply || ''), actions: cleanActions(r.actions) };
+}
+
+/* sin IA */
+const RULES = [
+  [/regal|le gustar|le encant|cumplea|aniversari|sorpresa/, 'regalos'],
+  [/colegio|escuela|utiles|uniforme|maestr|inscrip|libreta|cuaderno|mochila|ciclo escolar/, 'colegio'],
+  [/vallarta|vuelo|hotel|viaje|playa|reserva|maleta|pasaporte/, 'vallarta'],
+  [/skincare|crema|serum|protector solar|bloqueador|limpiador|hidratante|retinol|tonico|exfoliante/, 'skincare'],
+  [/maquillaje|labial|rimel|mascara de pestanas|base de|sombras|rubor|delineador/, 'goodies'],
+  [/perfume|ropa|camisa|zapato|tenis|pantalon|reloj|cinturon|lentes|comprar/, 'compras'],
+];
+function localClassify(text) {
+  const n = norm(text);
+  const hit = RULES.find(([re, id]) => re.test(n) && cat(id));
+  const lines = text.trim().split('\n');
+  const first = lines[0].slice(0, 120);
+  const rest = (lines[0].length > 120 ? lines[0].slice(120) + '\n' : '') + lines.slice(1).join('\n');
+  const c = hit ? hit[1] : 'notas';
+  return [{ op: 'add', title: first, notes: rest.trim(), category: c, date: '', repeat: '' }];
+}
+function localSearch(q) {
+  const STOP = new Set(['que', 'cual', 'cuales', 'como', 'para', 'por', 'los', 'las', 'del', 'una', 'uno', 'con', 'tengo', 'mis', 'hay', 'esta', 'este', 'donde', 'cuando', 'quien', 'le']);
+  const words = norm(q).split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !STOP.has(w));
+  if (!words.length) return [];
+  return S.items
+    .map((i) => { const h = norm(`${i.title} ${i.notes} ${catName(i.cat)}`); return [i, words.filter((w) => h.includes(w)).length]; })
+    .filter((x) => x[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, 12).map((x) => x[0]);
+}
+
+/* ============================== vistas ============================== */
+const UI = { tab: 'home', cat: null, showDone: false };
+let pendingImg = null;
+let CHAT = []; // {role:'me'|'bot', text, html?, actions?, applied?, thinking?}
+
+function go(tab, extra = {}) { Object.assign(UI, { tab, cat: null }, extra); render(); window.scrollTo(0, 0); }
+function render() {
+  $$('.tab').forEach((t) => t.setAttribute('aria-current', t.dataset.tab === UI.tab ? 'page' : 'false'));
+  const v = $('#view');
+  if (UI.tab === 'home') v.innerHTML = viewHome();
+  else if (UI.tab === 'lists') v.innerHTML = UI.cat ? viewCategory(UI.cat) : viewLists();
+  else if (UI.tab === 'ask') v.innerHTML = viewAsk();
+  else v.innerHTML = viewSettings();
+  afterRender();
+}
+
+function itemRow(it, showCat = true) {
+  const c = cat(it.cat);
+  const d = effectiveDate(it);
+  const checkable = it.cat !== 'perfil' && it.repeat !== 'yearly';
+  const sub = [
+    showCat && c ? esc(c.name) : '',
+    d ? `<span class="due ${dueClass(it)}">${it.repeat === 'yearly' ? ic('repeat', 'xs') + ' ' : ''}${relDate(d)}</span>` : '',
+    it.notes ? esc(it.notes.slice(0, 90)) : '',
+  ].filter(Boolean).join(' · ');
+  return `<div class="row-item ${it.done ? 'done' : ''}">
+    ${checkable
+      ? `<button class="check" data-act="check" data-id="${it.id}" aria-label="${it.done ? 'Marcar como pendiente' : 'Marcar como hecho'}">${it.done ? ic('check') : ''}</button>`
+      : `<span class="dot">${ic(c?.icon || 'folder', 'sm')}</span>`}
+    <button class="ri-body" data-act="open" data-id="${it.id}">
+      <span class="ri-title">${esc(it.title)}</span>${sub ? `<span class="ri-sub">${sub}</span>` : ''}
+    </button></div>`;
+}
+const pendingCount = (id) => S.items.filter((i) => i.cat === id && (id === 'perfil' || !i.done)).length;
+const countLabel = (c) => {
+  const n = pendingCount(c.id);
+  if (!n) return 'Vacía';
+  return c.id === 'perfil' ? `${n} dato${n > 1 ? 's' : ''}` : `${n} pendiente${n > 1 ? 's' : ''}`;
+};
+const HINTS = () => [
+  `A ${spouse() || 'mi esposa'} le encantó…`,
+  'Mueve el perfume a Goodies',
+  'Marca los útiles como comprados',
+  'Cambia la fecha del viaje al 22 de dic',
+  'Crea una lista para la casa',
+];
+
+/* Lo que importa hoy: señales concretas, sin ruido */
+function signals() {
+  const t = today0(), out = [];
+  const dated = S.items.filter((i) => i.date && !i.done).map((i) => [i, effectiveDate(i)]);
+  const over = dated.filter(([i, d]) => d < t && i.repeat !== 'yearly');
+  if (over.length) out.push({ icon: 'alert', cls: 'warn', id: over.length === 1 ? over[0][0].id : '', html: over.length === 1 ? `Vencido: <b>${esc(over[0][0].title)}</b>` : `<b>${over.length} cosas vencidas</b>. Resuélvelas o cámbiales la fecha.` });
+  const week = dated.filter(([i, d]) => d >= t && d - t <= 7 * DAY && i.repeat !== 'yearly').sort((a, b) => a[1] - b[1]);
+  if (week.length) out.push({ icon: 'calendar', cls: 'soon', id: week[0][0].id, html: `<b>${esc(week[0][0].title)}</b> · ${relDate(week[0][1]).toLowerCase()}${week.length > 1 ? ` <span class="muted">(+${week.length - 1} esta semana)</span>` : ''}` });
+  const events = dated.filter(([i, d]) => i.repeat === 'yearly' && d - t <= 21 * DAY).sort((a, b) => a[1] - b[1]);
+  for (const [i, d] of events.slice(0, 2)) {
+    const forSpouse = spouse() && norm(i.title).includes(norm(spouse()));
+    const ideas = S.items.filter((x) => x.cat === 'regalos' && !x.done).length;
+    out.push({ icon: 'cake', id: i.id, html: `<b>${esc(i.title)}</b> ${relDate(d).toLowerCase()}${forSpouse || /aniversario/i.test(i.title) ? ` · ${ideas ? `tienes ${ideas} idea${ideas > 1 ? 's' : ''} de regalo` : 'aún no hay ideas de regalo'}` : ''}` });
+  }
+  if (!out.length) out.push({ icon: 'bolt', html: 'Todo en orden. Buen momento para capturar ideas o vaciar tu cabeza aquí.' });
+  return out;
+}
+let REC = null;
+function toggleMic(btn) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { toast('Toca el micrófono del teclado para dictar'); $('#capText').focus(); return; }
+  if (REC) { REC.stop(); return; }
+  const r = new SR(); r.lang = 'es-MX'; r.interimResults = true; r.continuous = false;
+  const ta = $('#capText'); const base = ta.value ? ta.value.trim() + ' ' : '';
+  r.onresult = (e) => { let t = ''; for (const res of e.results) t += res[0].transcript; ta.value = base + t; };
+  r.onend = () => { REC = null; btn.classList.remove('rec'); };
+  r.onerror = (e) => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') toast('Toca el micrófono del teclado para dictar'); };
+  try { r.start(); REC = r; btn.classList.add('rec'); } catch { toast('Toca el micrófono del teclado para dictar'); }
+}
+function viewHome() {
+  const n = S.profile.name;
+  const d = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+  const up = upcoming(6);
+  return `
+  <header class="top home-top">
+    ${ARCS}
+    <div class="hello"><div class="eyebrow">${esc(d)}</div><h1>${n ? `Hola, ${esc(n)}` : 'Hola'}</h1></div>
+    <button class="avatar" data-act="goSettings" aria-label="Tu perfil y ajustes"><img src="${esc(getAvatar())}" alt=""></button>
+  </header>
+  <section class="card capture">
+    <textarea id="capText" rows="3" aria-label="Escríbele a Nexo" placeholder="${hasAI() ? 'Captura, cambia o pregunta. Nexo se encarga del resto.' : '¿Qué quieres recordar?'}"></textarea>
+    <div id="capImg" class="cap-img" ${pendingImg ? '' : 'hidden'}>${pendingImg ? `<img src="${pendingImg.preview}" alt="Imagen adjunta"><button data-act="imgRemove" aria-label="Quitar imagen">${ic('x', 'sm')}</button>` : ''}</div>
+    <div class="row">
+      <button class="icon-btn" data-act="imgPick" aria-label="Agregar foto o captura de pantalla">${ic('camera')}</button>
+      <button class="icon-btn" data-act="mic" aria-label="Dictar con la voz">${ic('mic')}</button>
+      <button class="icon-btn" data-act="paste" aria-label="Pegar del portapapeles">${ic('clipboard')}</button>
+      <button class="btn primary" data-act="capture">${hasAI() ? 'Enviar' : 'Guardar'}</button>
+    </div>
+  </section>
+  ${hasAI() ? `<div class="hints">${HINTS().map((h) => `<button class="hint" data-act="hint">${esc(h)}</button>`).join('')}</div>` : ''}
+  <div class="sec-row"><h2 class="sec">Lo que importa hoy</h2></div>
+  <div class="card focus">${signals().map((s) => `<button class="sig ${s.cls || ''}" ${s.id ? `data-act="open" data-id="${s.id}"` : ''}>${ic(s.icon, 'sm')}<span>${s.html}</span></button>`).join('')}</div>
+  ${hasAI() ? `<button class="btn ai brief-btn" data-act="brief">${SPARK.replace('<svg', '<svg class="ic"')} Brief del día con Nexo</button>` : ''}
+  <div class="sec-row"><h2 class="sec">Próximos</h2></div>
+  ${up.length ? `<div class="card list">${up.map((i) => itemRow(i)).join('')}</div>` : '<p class="empty">Nada con fecha todavía. Lo que guardes con fecha aparecerá aquí.</p>'}
+  <div class="sec-row"><h2 class="sec">Mis listas</h2><button class="link" data-act="newCat">${ic('plus', 'sm')} Nueva</button></div>
+  <div class="grid">${S.cats.map((c) => `
+    <button class="tile t-${catColor(c)}" data-act="cat" data-id="${c.id}">
+      <span class="em">${ic(c.icon)}</span><span class="nm">${esc(c.name)}</span>
+      <span class="ct">${countLabel(c)}</span>
+    </button>`).join('')}</div>`;
+}
+
+function viewLists() {
+  return `
+  <header class="top"><h1>Listas</h1></header>
+  <div class="card list" style="margin-top:14px">${S.cats.map((c) => `
+    <button class="cat-row" data-act="cat" data-id="${c.id}">
+      <span class="em t-${catColor(c)}">${ic(c.icon)}</span><span class="nm">${esc(c.name)}</span>
+      <span class="ct">${pendingCount(c.id) || ''}</span><span class="chev">${ic('right', 'sm')}</span>
+    </button>`).join('')}</div>
+  <button class="btn block" style="margin-top:14px" data-act="newCat">${ic('plus')} Nueva lista</button>
+  <p class="help">Toca una lista y luego "Editar" para cambiar su nombre, icono, color u orden.</p>`;
+}
+
+function viewCategory(id) {
+  const c = cat(id);
+  if (!c) { UI.cat = null; return viewLists(); }
+  const all = S.items.filter((i) => i.cat === id);
+  const open = sortItems(all.filter((i) => !i.done));
+  const done = all.filter((i) => i.done).sort((a, b) => b.updated - a.updated);
+  return `
+  <div class="top-row"><button class="back" data-act="back">${ic('left', 'sm')} Listas</button></div>
+  <div class="top-row" style="padding-top:0"><h1>${esc(c.name)}</h1><button class="btn" data-act="editCat" data-id="${c.id}">${ic('pencil', 'sm')} Editar</button></div>
+  <form class="add-row" data-form="quickAdd">
+    <input class="in" id="quickIn" placeholder="${hasAI() ? 'Agrega o pídele algo a Nexo…' : `Agregar a ${esc(c.name)}…`}" autocomplete="off" aria-label="Nuevo elemento">
+    <button type="submit" class="btn primary sq" aria-label="Agregar">${ic('plus')}</button>
+    ${hasAI() ? `<button type="button" class="btn ai sq" data-act="listAsk" aria-label="Pedírselo a Nexo">${SPARK.replace('<svg', '<svg class="ic"')}</button>` : ''}
+  </form>
+  ${open.length ? `<div class="card list">${open.map((i) => itemRow(i, false)).join('')}</div>` : '<p class="empty">No hay pendientes aquí.</p>'}
+  ${done.length ? `<button class="toggle-done" data-act="toggleDone">${UI.showDone ? 'Ocultar' : 'Mostrar'} completados (${done.length})</button>
+    ${UI.showDone ? `<div class="card list" style="margin-top:8px">${done.map((i) => itemRow(i, false)).join('')}</div>
+    <button class="toggle-done" style="color:var(--danger)" data-act="clearDone" data-id="${id}">Borrar completados</button>` : ''}` : ''}`;
+}
+
+const SUGGEST = () => [
+  'Dame mi brief de hoy',
+  `¿Qué le puedo regalar a ${spouse() || 'mi esposa'}?`,
+  '¿Qué tengo pendiente esta semana?',
+  `¿Qué le falta a ${kid() || 'mi hija'} para el colegio?`,
+  'Resumen de mi viaje a Puerto Vallarta',
+  'Marca como comprado el protector solar',
+];
+function mdLite(s) {
+  const lines = esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').split('\n');
+  let html = '', inList = false;
+  for (const l of lines) {
+    const m = l.match(/^\s*[-*•]\s+(.*)/);
+    if (m) { if (!inList) { html += '<ul>'; inList = true; } html += `<li>${m[1]}</li>`; continue; }
+    if (inList) { html += '</ul>'; inList = false; }
+    if (l.trim()) html += `<p>${l}</p>`;
+  }
+  return html + (inList ? '</ul>' : '');
+}
+function viewAsk() {
+  const msgs = CHAT.map((m, i) => {
+    if (m.role === 'me') return `<div class="bubble me">${esc(m.text)}</div>`;
+    const body = m.thinking ? '<span class="spin"></span> Pensando…' : m.html || mdLite(m.text);
+    const act = m.actions?.length
+      ? m.applied ? `<div class="applied">${ic('check', 'sm')} Cambios aplicados</div>`
+        : `<button class="btn primary" data-act="chatReview" data-i="${i}">Revisar y aplicar ${m.actions.length} cambio${m.actions.length > 1 ? 's' : ''}</button>`
+      : '';
+    return `<div class="bot-row"><span class="nx">${SPARK}</span><div class="bubble bot ${m.thinking ? 'thinking' : ''}">${body}${act}</div></div>`;
+  }).join('');
+  return `
+  <header class="top"><h1>Pregúntale a Nexo</h1></header>
+  <div class="chat" id="chat">
+    ${CHAT.length ? msgs : `<div class="ask-hero"><span class="nx">${SPARK}</span>
+      <p class="muted" style="margin:0">${hasAI() ? 'Pregúntame, pídeme que guarde algo o que cambie lo que ya guardaste. Respondo solo con lo que tú me has contado.' : 'Sin Gemini puedo buscar en tu memoria. Conéctalo en Ajustes para respuestas inteligentes y ediciones.'}</p></div>
+      <div class="chips">${SUGGEST().map((s) => `<button class="chip" data-act="suggest">${esc(s)}</button>`).join('')}</div>`}
+  </div>
+  <form class="ask-bar" data-form="ask"><div class="wrap">
+    <textarea class="in" id="askIn" rows="1" placeholder="Escríbele a Nexo…" aria-label="Mensaje para Nexo"></textarea>
+    <button class="btn primary sq" aria-label="Enviar">${ic('up')}</button>
+  </div></form>`;
+}
+
+function viewSettings() {
+  const key = getKey();
+  const model = getModel();
+  const models = MODELS.length ? MODELS : [model];
+  return `
+  <header class="top"><h1>Ajustes</h1></header>
+  <div class="card me-card">
+    <button class="avatar" data-act="avatarPick" aria-label="Cambiar avatar"><img src="${esc(getAvatar())}" alt=""></button>
+    <div style="flex:1; min-width:0">
+      <div class="nm">${esc(S.profile.name || 'Tu perfil')}</div>
+      <button class="small" style="color:var(--mint)" data-act="avatarPick">Cambiar avatar</button>
+      ${lsGet(AVATAR_STORE) ? '<span class="muted small"> · </span><button class="small muted" data-act="avatarReset">Usar el original</button>' : ''}
+    </div>
+  </div>
+  <h2 class="sec">Gemini</h2>
+  <div class="card">
+    <p class="small muted" style="margin:0">${key ? '<b style="color:var(--mint)">Conectado.</b> Tu clave se guarda solo en este teléfono y no se incluye en los respaldos.' : 'Conecta tu clave para que Nexo entienda correos y capturas, edite lo que ya guardaste y responda preguntas.'}</p>
+    ${key ? '' : geminiHowTo()}
+    <label class="lbl" for="keyIn">Clave de API</label>
+    <input class="in" id="keyIn" type="password" placeholder="Pega tu clave" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(key)}">
+    ${key ? `<label class="lbl" for="modelSel">Modelo</label>
+    <select class="in" id="modelSel">${models.map((m) => `<option ${m === model ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select>
+    <p class="help">Recomendado: el "flash" más nuevo. Es rápido y barato.</p>` : ''}
+    <div style="display:flex; gap:10px; margin-top:14px">
+      <button class="btn primary" style="flex:1" data-act="saveKey">${key ? 'Guardar y probar' : 'Conectar'}</button>
+      ${key ? '<button class="btn danger" data-act="removeKey">Quitar</button>' : ''}
+    </div>
+  </div>
+  <p class="help">La capa gratuita de Gemini puede usar lo que envías para mejorar sus productos. Si prefieres que no, activa la facturación en Google AI Studio (con este uso cuesta muy poco).</p>
+
+  <h2 class="sec">Memoria</h2>
+  <div class="card list">
+    <button class="set-row" data-act="redoOnb">${ic('user')}<span class="nm">Editar mis datos y familia</span>${ic('right', 'sm')}</button>
+    <button class="set-row" data-act="goLists">${ic('folder')}<span class="nm">Editar listas</span>${ic('right', 'sm')}</button>
+    <button class="set-row" data-act="export">${ic('upload')}<span class="nm">Exportar respaldo</span><span class="muted small">${S.items.length} elementos</span></button>
+    <button class="set-row" data-act="import">${ic('download')}<span class="nm">Importar respaldo</span>${ic('right', 'sm')}</button>
+    <button class="set-row danger" data-act="wipe">${ic('trash')}<span class="nm">Borrar toda la memoria</span></button>
+  </div>
+  <p class="help">Tu información vive solo en este teléfono. Haz un respaldo de vez en cuando y guárdalo en iCloud Drive (Archivos).</p>
+  <p class="help" style="text-align:center; margin-top:28px; display:flex; align-items:center; justify-content:center; gap:6px"><span style="width:14px;height:14px;display:inline-flex">${SPARK}</span> Nexo · v3</p>`;
+}
+
+function afterRender() {
+  if (UI.tab === 'ask') {
+    const ta = $('#askIn');
+    ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 140) + 'px'; });
+    window.scrollTo(0, document.body.scrollHeight);
+  }
+  if (UI.tab === 'settings' && hasAI() && !MODELS.length) {
+    listModels(getKey()).then((n) => { MODELS = n; if (UI.tab === 'settings' && !$('#keyIn:focus')) render(); }).catch(() => {});
+  }
+}
+
+/* ============================== hojas ============================== */
+function openSheet(html) {
+  const root = $('#sheet');
+  root.innerHTML = `<div class="sheet-bg" data-close></div><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div>`;
+  root.hidden = false; document.body.classList.add('noscroll');
+  return $('.sheet', root);
+}
+function closeSheet() { const r = $('#sheet'); r.hidden = true; r.innerHTML = ''; document.body.classList.remove('noscroll'); }
+
+function catOptions(selected) {
+  let sel = 'notas', extra = '';
+  const f = findCat(selected);
+  if (f) sel = f.id;
+  else if (selected) { sel = 'new:' + selected; extra = `<option value="${esc(sel)}" selected>+ Lista nueva: ${esc(selected)}</option>`; }
+  return extra + S.cats.map((c) => `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${esc(c.name)}</option>`).join('');
+}
+const catLabelFor = (value) => { const f = findCat(value); return f ? f.name : `${value} (nueva)`; };
+
+/* Revisión de cambios propuestos (por Nexo o sin IA) */
+let REVIEW = null;
+function openReview(actions, reply, onDone) {
+  actions = cleanActions(actions);
+  if (!actions.length) { toast('Esos cambios ya no aplican'); return; }
+  REVIEW = { actions, onDone };
+  const allAdds = actions.every((a) => a.op === 'add');
+  const rows = actions.map((a, k) => (a.op === 'add' ? addRow(a, k) : changeRow(a, k))).join('');
+  const n = actions.length;
+  const sh = openSheet(`
+    <h3>${allAdds ? (n > 1 ? `Guardar ${n} elementos` : 'Guardar en memoria') : (n > 1 ? `Revisa ${n} cambios` : 'Revisa el cambio')}</h3>
+    ${reply ? `<div class="muted small review-reply">${mdLite(reply)}</div>` : '<p class="muted small" style="margin:0 2px">Ajusta lo que quieras antes de guardar.</p>'}
+    <div>${rows}</div>
+    <div class="sheet-actions"><button class="btn" data-close>Cancelar</button><button class="btn primary" data-act="reviewApply">${allAdds ? 'Guardar' : 'Aplicar'}</button></div>`);
+  $$('.pv > input[type=checkbox]', sh).forEach((cb) => cb.addEventListener('change', () => cb.closest('.pv').classList.toggle('off', !cb.checked)));
+}
+function addRow(a, k) {
+  return `<div class="pv" data-k="${k}">
+    <input type="checkbox" checked aria-label="Incluir">
+    <div class="pv-body">
+      <span class="ch-op add">Nuevo</span>
+      <input class="in pv-title" value="${esc(a.title)}" aria-label="Título">
+      <div class="pv-row">
+        <select class="in pv-cat" aria-label="Lista">${catOptions(a.category)}</select>
+        <input type="date" class="in pv-date" value="${esc(a.date === 'none' ? '' : a.date)}" aria-label="Fecha">
+      </div>
+      <textarea class="in pv-notes" rows="${a.notes ? 2 : 1}" placeholder="Notas" aria-label="Notas">${esc(a.notes)}</textarea>
+    </div></div>`;
+}
+function changeRow(a, k) {
+  const it = getItem(a.id), c = cat(a.id);
+  const L = { update: 'Editar', done: 'Marcar como hecho', undone: 'Marcar pendiente', delete: 'Eliminar', add_list: 'Lista nueva', update_list: 'Editar lista', delete_list: 'Eliminar lista' };
+  let title = '', diff = [];
+  if (['update', 'done', 'undone', 'delete'].includes(a.op)) title = it.title;
+  if (a.op === 'update') {
+    if (a.title && a.title !== it.title) diff.push(`Título: <b>${esc(a.title)}</b>`);
+    if (a.category && findCat(a.category)?.id !== it.cat) diff.push(`Lista: ${esc(catName(it.cat))} → <b>${esc(catLabelFor(a.category))}</b>`);
+    if (a.date) diff.push(`Fecha: ${esc(fmtDate(it.date))} → <b>${esc(a.date === 'none' ? 'sin fecha' : fmtDate(a.date))}</b>`);
+    if (a.repeat) diff.push(`Repetir cada año: <b>${a.repeat === 'yearly' ? 'sí' : 'no'}</b>`);
+    if (a.notes) diff.push(`Notas: <b>${esc(a.notes)}</b>`);
+  }
+  if (a.op === 'add_list') { title = a.name; diff.push(`${a.icon ? 'Icono ' + ic(a.icon, 'xs') + ' · ' : ''}${COLOR_NAMES[a.color || 'dark']}`); }
+  if (a.op === 'update_list') {
+    title = c.name;
+    if (a.name && a.name !== c.name) diff.push(`Nombre: <b>${esc(a.name)}</b>`);
+    if (a.icon) diff.push(`Icono: ${ic(a.icon, 'xs')}`);
+    if (a.color) diff.push(`Color: <b>${COLOR_NAMES[a.color]}</b>`);
+  }
+  if (a.op === 'delete_list') { title = c.name; diff.push('Sus elementos pasarán a Notas'); }
+  return `<div class="pv" data-k="${k}">
+    <input type="checkbox" checked aria-label="Incluir">
+    <div class="pv-body">
+      <span class="ch-op ${a.op.startsWith('delete') ? 'del' : a.op === 'add_list' ? 'add' : ''}">${L[a.op]}</span>
+      <span class="ch-title">${esc(title)}</span>
+      ${diff.length ? `<div class="ch-diff">${diff.map((d) => `<span>${d}</span>`).join('')}</div>` : ''}
+    </div></div>`;
+}
+function applyReview() {
+  if (!REVIEW) return;
+  const { actions, onDone } = REVIEW;
+  const rowOf = (k) => $(`#sheet .pv[data-k="${k}"]`);
+  const on = (k) => $('input[type=checkbox]', rowOf(k)).checked;
+  snapshot();
+  let n = 0;
+  actions.forEach((a, k) => {
+    if (!on(k)) return;
+    if (a.op === 'add_list') { ensureCategory(a.name, a.icon, a.color); n++; }
+    if (a.op === 'update_list') { const c = cat(a.id); if (!c) return; if (a.name) c.name = a.name; if (a.icon) c.icon = a.icon; if (a.color) c.color = a.color; n++; }
+  });
+  actions.forEach((a, k) => {
+    if (!on(k)) return;
+    const row = rowOf(k);
+    if (a.op === 'add') {
+      const v = $('.pv-cat', row).value;
+      const catId = v.startsWith('new:') ? ensureCategory(v.slice(4)) : v;
+      if (addItem({ title: $('.pv-title', row).value, cat: catId, date: $('.pv-date', row).value, notes: $('.pv-notes', row).value, repeat: a.repeat })) n++;
+      return;
+    }
+    const it = getItem(a.id);
+    if (!it) return;
+    if (a.op === 'update') {
+      if (a.title) it.title = a.title;
+      if (a.category) it.cat = ensureCategory(a.category);
+      if (a.date === 'none') it.date = ''; else if (a.date) it.date = a.date;
+      if (a.notes) it.notes = a.notes;
+      if (a.repeat === 'yearly') it.repeat = 'yearly'; else if (a.repeat === 'none') it.repeat = '';
+      if (it.pkey) { delete S.profile[it.pkey]; delete it.pkey; }
+    }
+    if (a.op === 'done') it.done = true;
+    if (a.op === 'undone') it.done = false;
+    if (a.op === 'delete') { if (it.pkey) delete S.profile[it.pkey]; S.items = S.items.filter((x) => x !== it); }
+    it.updated = Date.now(); n++;
+  });
+  actions.forEach((a, k) => { if (on(k) && a.op === 'delete_list' && cat(a.id)) { removeList(a.id); n++; } });
+  save(); closeSheet(); REVIEW = null;
+  if (n && onDone) onDone();
+  render();
+  toast(n ? `${n} cambio${n > 1 ? 's' : ''} aplicado${n > 1 ? 's' : ''}` : 'No se aplicó nada', n ? { undo: true } : {});
+}
+
+/* Detalle de un elemento: todo editable + pedirle cambios a Nexo */
+function openItem(id) {
+  const it = getItem(id);
+  if (!it) return;
+  openSheet(`
+    <h3>Detalle</h3>
+    ${hasAI() ? `<form class="nexo-ask" data-form="itemAsk" data-id="${it.id}"><span class="nx">${SPARK}</span>
+      <input class="in" id="edAsk" placeholder="Pídele un cambio a Nexo…" autocomplete="off" aria-label="Pídele un cambio a Nexo">
+      <button class="btn ai sq" aria-label="Enviar a Nexo">${ic('up')}</button></form>` : ''}
+    <label class="lbl" for="edTitle">Título</label>
+    <input class="in" id="edTitle" value="${esc(it.title)}">
+    <label class="lbl" for="edCat">Lista</label>
+    <select class="in" id="edCat">${catOptions(it.cat)}</select>
+    <label class="lbl" for="edDate">Fecha</label>
+    <div class="pv-row"><input type="date" class="in" id="edDate" value="${esc(it.date)}">
+      <label class="btn" style="font-weight:500; gap:8px"><input type="checkbox" id="edYearly" ${it.repeat === 'yearly' ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--mint)">Cada año</label></div>
+    <label class="lbl" for="edNotes">Notas</label>
+    <textarea class="in" id="edNotes" rows="4" placeholder="Marca, talla, precio, link, quién lo mencionó…">${esc(it.notes)}</textarea>
+    <p class="help">Guardado el ${new Date(it.created).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}${it.pkey ? ' · Viene de tus datos iniciales' : ''}</p>
+    <div class="sheet-actions" style="flex-wrap:wrap">
+      ${it.date ? `<button class="btn" style="flex-basis:100%" data-act="ics" data-id="${it.id}">${ic('calplus')} Añadir al Calendario</button>` : ''}
+      <button class="btn danger" data-act="delItem" data-id="${it.id}">${ic('trash')} Eliminar</button>
+      <button class="btn primary" data-act="saveItem" data-id="${it.id}">Guardar</button>
+    </div>`);
+}
+function saveItem(id) {
+  const it = getItem(id);
+  if (!it) return;
+  const title = $('#edTitle').value.trim();
+  if (!title) return toast('El título no puede estar vacío');
+  snapshot();
+  Object.assign(it, {
+    title, cat: $('#edCat').value, notes: $('#edNotes').value.trim(),
+    date: isYmd($('#edDate').value) ? $('#edDate').value : '',
+    repeat: $('#edYearly').checked ? 'yearly' : '', updated: Date.now(),
+  });
+  if (it.pkey) { delete S.profile[it.pkey]; delete it.pkey; }
+  save(); closeSheet(); render(); toast('Guardado', { undo: true });
+}
+
+/* Editor de listas: nombre, icono, color, orden */
+function openCatEditor(id) {
+  const c = id ? cat(id) : null;
+  const icon = c?.icon || 'folder', color = c ? catColor(c) : 'dark';
+  const idx = c ? S.cats.indexOf(c) : -1;
+  openSheet(`
+    <h3>${c ? 'Editar lista' : 'Nueva lista'}</h3>
+    <label class="lbl" for="ceName">Nombre</label>
+    <input class="in" id="ceName" value="${esc(c?.name || '')}" placeholder="Ej: Casa, Gym, Samantha…">
+    <label class="lbl">Icono</label>
+    <div class="icon-grid">${LIST_ICONS.map((n) => `<button type="button" class="icon-opt ${n === icon ? 'on' : ''}" data-pick-icon="${n}" aria-label="${n}">${ic(n)}</button>`).join('')}</div>
+    <label class="lbl">Color</label>
+    <div class="swatches">${COLORS.map((cl) => `<button type="button" class="sw t-${cl} ${cl === color ? 'on' : ''}" data-pick-color="${cl}" aria-label="${COLOR_NAMES[cl]}"></button>`).join('')}</div>
+    ${c ? `<label class="lbl">Orden</label>
+    <div class="pv-row"><button class="btn" data-act="catMove" data-id="${c.id}" data-dir="-1" ${idx === 0 ? 'disabled' : ''}>${ic('up')} Subir</button>
+      <button class="btn" data-act="catMove" data-id="${c.id}" data-dir="1" ${idx === S.cats.length - 1 ? 'disabled' : ''}>${ic('down')} Bajar</button></div>` : ''}
+    <div class="sheet-actions">
+      ${c && !c.system ? `<button class="btn danger" data-act="delCat" data-id="${c.id}">${ic('trash')} Eliminar</button>` : '<button class="btn" data-close>Cancelar</button>'}
+      <button class="btn primary" data-act="saveCat" data-id="${c?.id || ''}">Guardar</button>
+    </div>`);
+  if (!c) setTimeout(() => $('#ceName').focus(), 250);
+}
+function saveCat(id) {
+  const name = $('#ceName').value.trim();
+  if (!name) return toast('Ponle un nombre');
+  const icon = $('#sheet .icon-opt.on')?.dataset.pickIcon || 'folder';
+  const color = $('#sheet .sw.on')?.dataset.pickColor || 'dark';
+  snapshot();
+  if (id) Object.assign(cat(id), { name, icon, color });
+  else { const f = findCat(name); if (f) Object.assign(f, { icon, color }); else ensureCategory(name, icon, color); }
+  save(); closeSheet(); render(); toast('Lista guardada', { undo: true });
+}
+
+/* ============================== acciones ============================== */
+async function runNexo(text, btn, img = null) {
+  setBusy(btn, true);
+  try { return await aiCommand(text, img, chatHistory()); }
+  catch (e) { toast(e.message, { ms: 4000 }); return null; }
+  finally { setBusy(btn, false); }
+}
+function chatHistory() {
+  return CHAT.filter((m) => !m.thinking && m.text).slice(-10)
+    .map((m) => ({ role: m.role === 'me' ? 'user' : 'model', parts: [{ text: m.text }] }));
+}
+async function doCapture(btn) {
+  const text = $('#capText').value.trim();
+  const img = pendingImg;
+  if (!text && !img) return toast('Escribe algo o agrega una foto');
+  const clear = () => { pendingImg = null; const t = $('#capText'); if (t) t.value = ''; };
+  if (!hasAI()) {
+    if (img) return toast('Para leer fotos, conecta Gemini en Ajustes');
+    return openReview(localClassify(text), '', clear);
+  }
+  const r = await runNexo(text, btn, img);
+  if (!r) { if (text) openReview(localClassify(text), 'Sin IA en este momento: revisa antes de guardar.', clear); return; }
+  if (r.actions.length) return openReview(r.actions, r.reply, clear);
+  // sin cambios: fue una pregunta → la respuesta va al chat
+  CHAT.push({ role: 'me', text: text || '(imagen)' }, { role: 'bot', text: r.reply || 'No encontré nada que guardar.' });
+  pendingImg = null;
+  go('ask');
+}
+async function doAsk(q) {
+  q = q.trim(); if (!q) return;
+  if (!hasAI()) {
+    CHAT.push({ role: 'me', text: q });
+    const found = localSearch(q);
+    CHAT.push({ role: 'bot', text: '', html: found.length
+      ? `<p>Encontré esto en tu memoria:</p><div class="list" style="padding:0">${found.map((i) => itemRow(i)).join('')}</div>`
+      : '<p>No encontré nada con esas palabras. Conecta Gemini en Ajustes para respuestas más inteligentes.</p>' });
+    return render();
+  }
+  const history = chatHistory();
+  CHAT.push({ role: 'me', text: q });
+  const thinking = { role: 'bot', thinking: true };
+  CHAT.push(thinking); render();
+  try {
+    const r = await aiCommand(q, null, history);
+    Object.assign(thinking, { thinking: false, text: r.reply || (r.actions.length ? 'Te propongo estos cambios.' : 'Listo.'), actions: r.actions });
+  } catch (e) {
+    Object.assign(thinking, { thinking: false, text: 'Hubo un problema: ' + e.message });
+  }
+  if (UI.tab === 'ask') render();
+}
+async function askAbout(prefix, input, btn) {
+  const t = input.value.trim();
+  if (!t) return toast('Escribe qué quieres que haga Nexo');
+  const r = await runNexo(`${prefix} ${t}`, btn);
+  if (!r) return;
+  if (r.actions.length) { closeSheet(); openReview(r.actions, r.reply, () => { input.value = ''; }); }
+  else toast(r.reply || 'No encontré cambios que hacer', { ms: 5000 });
+}
+
+async function fileToJpeg(file, max = 2400) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image(); img.src = url; await img.decode();
+    let w = img.naturalWidth, h = img.naturalHeight;
+    const sc = Math.min(1, max / Math.max(w, h)); w = Math.round(w * sc); h = Math.round(h * sc);
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    c.getContext('2d').drawImage(img, 0, 0, w, h);
+    const data = c.toDataURL('image/jpeg', 0.85);
+    return { mimeType: 'image/jpeg', data: data.split(',')[1], preview: data };
+  } finally { URL.revokeObjectURL(url); }
+}
+async function shareOrDownload(name, text, type, preferShare) {
+  const blob = new Blob([text], { type });
+  if (preferShare) {
+    try {
+      const file = new File([blob], name, { type });
+      if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: name }); return; }
+    } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+function icsFor(it) {
+  const e = (s) => String(s || '').replace(/\\/g, '\\\\').replace(/\r?\n/g, '\\n').replace(/([,;])/g, '\\$1');
+  const start = parseYmd(it.date); const end = new Date(start); end.setDate(end.getDate() + 1);
+  const f = (d) => ymd(d).replace(/-/g, '');
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Nexo//ES', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT',
+    `UID:${it.id}@nexo`, `DTSTAMP:${stamp}`, `DTSTART;VALUE=DATE:${f(start)}`, `DTEND;VALUE=DATE:${f(end)}`,
+    `SUMMARY:${e(it.title)}`, it.notes ? `DESCRIPTION:${e(it.notes)}` : '', it.repeat === 'yearly' ? 'RRULE:FREQ=YEARLY' : '',
+    'BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${e(it.title)}`, 'TRIGGER:-PT15H', 'END:VALARM',
+    'END:VEVENT', 'END:VCALENDAR'].filter(Boolean).join('\r\n');
+}
+
+const ACTIONS = {
+  undo: () => undo(),
+  mic: (el) => toggleMic(el),
+  brief: () => { go('ask'); doAsk('Dame mi brief de hoy: lo más importante en 3 a 5 puntos, qué hago primero y una sugerencia proactiva basada en mi memoria (fechas que vienen, regalos, compras pendientes). Directo y sin relleno.'); },
+  goSettings: () => go('settings'),
+  goLists: () => go('lists'),
+  capture: (el) => doCapture(el),
+  hint: (el) => { const t = $('#capText'); t.value = el.textContent.replace(/…$/, ' '); t.focus(); },
+  imgPick: () => $('#fileImg').click(),
+  imgRemove: () => { const keep = $('#capText')?.value || ''; pendingImg = null; render(); $('#capText').value = keep; },
+  paste: async () => {
+    try { const t = await navigator.clipboard.readText(); if (!t) return toast('El portapapeles está vacío'); const ta = $('#capText'); ta.value = (ta.value ? ta.value + '\n' : '') + t; ta.focus(); }
+    catch { toast('Mantén presionado el cuadro de texto y elige "Pegar"'); }
+  },
+  check: (el) => {
+    const it = getItem(el.dataset.id); if (!it) return;
+    snapshot(); it.done = !it.done; it.updated = Date.now(); save(); render();
+    toast(it.done ? 'Hecho' : 'Pendiente otra vez', { undo: true });
+  },
+  open: (el) => openItem(el.dataset.id),
+  saveItem: (el) => saveItem(el.dataset.id),
+  delItem: (el) => {
+    const it = getItem(el.dataset.id); if (!it) return;
+    snapshot();
+    if (it.pkey) delete S.profile[it.pkey];
+    S.items = S.items.filter((i) => i !== it); save(); closeSheet(); render();
+    toast('Eliminado', { undo: true });
+  },
+  ics: (el) => { const it = getItem(el.dataset.id); if (it) shareOrDownload('recordatorio.ics', icsFor(it), 'text/calendar', false); },
+  cat: (el) => go('lists', { cat: el.dataset.id, showDone: false }),
+  back: () => go('lists'),
+  toggleDone: () => { UI.showDone = !UI.showDone; render(); },
+  clearDone: (el) => {
+    snapshot();
+    S.items = S.items.filter((i) => !(i.cat === el.dataset.id && i.done)); save(); render();
+    toast('Completados borrados', { undo: true });
+  },
+  newCat: () => openCatEditor(null),
+  editCat: (el) => openCatEditor(el.dataset.id),
+  saveCat: (el) => saveCat(el.dataset.id),
+  catMove: (el) => {
+    const i = S.cats.findIndex((c) => c.id === el.dataset.id), j = i + Number(el.dataset.dir);
+    if (i < 0 || j < 0 || j >= S.cats.length) return;
+    [S.cats[i], S.cats[j]] = [S.cats[j], S.cats[i]]; save(); render();
+    // mantener abiertos los cambios no guardados de nombre/icono/color
+    const keep = { name: $('#ceName').value, icon: $('#sheet .icon-opt.on')?.dataset.pickIcon, color: $('#sheet .sw.on')?.dataset.pickColor };
+    openCatEditor(el.dataset.id);
+    $('#ceName').value = keep.name;
+    if (keep.icon) { $$('#sheet .icon-opt').forEach((b) => b.classList.toggle('on', b.dataset.pickIcon === keep.icon)); }
+    if (keep.color) { $$('#sheet .sw').forEach((b) => b.classList.toggle('on', b.dataset.pickColor === keep.color)); }
+  },
+  delCat: (el) => {
+    snapshot(); removeList(el.dataset.id); save(); closeSheet(); go('lists');
+    toast('Lista eliminada', { undo: true });
+  },
+  reviewApply: () => applyReview(),
+  listAsk: (el) => askAbout(`En la lista [lista id:${UI.cat}] "${catName(UI.cat)}":`, $('#quickIn'), el),
+  suggest: (el) => doAsk(el.textContent),
+  chatReview: (el) => {
+    const m = CHAT[+el.dataset.i]; if (!m?.actions?.length) return;
+    openReview(m.actions, '', () => { m.applied = true; });
+  },
+  saveKey: async (el) => {
+    const k = $('#keyIn').value.trim();
+    if (!k) return toast('Pega tu clave primero');
+    const sel = $('#modelSel');
+    setBusy(el, true, 'Probando…');
+    try {
+      await connectKey(k);
+      if (sel && MODELS.includes(sel.value)) lsSet(MODEL_STORE, sel.value);
+      toast('Gemini conectado'); render();
+    } catch (e) { toast(e.message, { ms: 4000 }); setBusy(el, false); }
+  },
+  removeKey: () => { if (!confirm('¿Quitar la clave de Gemini de este teléfono?')) return; lsDel(KEY_STORE); MODELS = []; render(); },
+  redoOnb: () => openOnboarding(1),
+  avatarPick: () => $('#fileAvatar').click(),
+  avatarReset: () => { lsDel(AVATAR_STORE); render(); },
+  export: () => shareOrDownload(`nexo-respaldo-${ymd(new Date())}.json`, JSON.stringify(S, null, 2), 'application/json', true),
+  import: () => $('#fileBackup').click(),
+  wipe: () => {
+    if (!confirm('Esto borra TODA tu memoria de este teléfono y no se puede deshacer. ¿Seguro? (Exporta un respaldo antes si lo necesitas)')) return;
+    S = freshData(); save(); CHAT = []; UNDO = null; openOnboarding(0);
+  },
+};
+
+document.addEventListener('click', (e) => {
+  const tab = e.target.closest('.tab');
+  if (tab) return go(tab.dataset.tab);
+  const onb = e.target.closest('[data-onb]');
+  if (onb) return onbAction(onb.dataset.onb);
+  const pi = e.target.closest('[data-pick-icon]');
+  if (pi) { $$('[data-pick-icon]', pi.parentElement).forEach((b) => b.classList.toggle('on', b === pi)); return; }
+  const pc = e.target.closest('[data-pick-color]');
+  if (pc) { $$('[data-pick-color]', pc.parentElement).forEach((b) => b.classList.toggle('on', b === pc)); return; }
+  if (e.target.closest('[data-close]')) return closeSheet();
+  const a = e.target.closest('[data-act]');
+  if (a && a.dataset.act && ACTIONS[a.dataset.act]) { e.preventDefault(); ACTIONS[a.dataset.act](a); }
+});
+document.addEventListener('submit', (e) => {
+  const form = e.target, f = form.dataset.form; if (!f) return;
+  e.preventDefault();
+  if (f === 'quickAdd') {
+    const v = $('#quickIn').value.trim(); if (!v) return;
+    addItem({ title: v, cat: UI.cat }); save(); render();
+    setTimeout(() => $('#quickIn')?.focus(), 0);
+  } else if (f === 'ask') {
+    const v = $('#askIn').value; $('#askIn').value = ''; doAsk(v);
+  } else if (f === 'itemAsk') {
+    const it = getItem(form.dataset.id); if (!it) return;
+    askAbout(`Sobre el elemento [id:${it.id}] "${it.title}":`, $('#edAsk'), $('button', form));
+  }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey && e.target.id === 'onbIn' && e.target.tagName === 'INPUT') { e.preventDefault(); onbAction('next'); }
+  if (e.key === 'Escape' && !$('#sheet').hidden) closeSheet();
+});
+$('#fileImg').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  const keep = $('#capText')?.value || '';
+  try { pendingImg = await fileToJpeg(f); render(); $('#capText').value = keep; }
+  catch { toast('No pude abrir esa imagen'); }
+});
+$('#fileAvatar').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try {
+    const j = await fileToJpeg(f, 360);
+    if (!lsSet(AVATAR_STORE, j.preview)) throw new Error();
+    render(); toast('Avatar actualizado');
+  } catch { toast('No pude usar esa imagen'); }
+});
+$('#fileBackup').addEventListener('change', async (e) => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    if (!Array.isArray(d.items) || !Array.isArray(d.cats)) throw new Error();
+    if (!confirm(`Este respaldo tiene ${d.items.length} elementos. Reemplazará tu memoria actual. ¿Continuar?`)) return;
+    snapshot(); S = migrate(d); S.onboarded = true; save(); render(); toast('Respaldo importado', { undo: true });
+  } catch { toast('Ese archivo no es un respaldo válido'); }
+});
+
+/* ============================== inicio ============================== */
+save();
+render();
+if (!S.onboarded) openOnboarding(0);
+if (navigator.storage?.persist) navigator.storage.persist().catch(() => {});
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>
